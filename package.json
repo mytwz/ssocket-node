@@ -1,0 +1,34 @@
+{
+  "name": "ssocket",
+  "version": "1.0.32",
+  "description": "仿 Koa 中间件控制的 WebSocket 服务",
+  "main": "./dist/index.js",
+  "typings": "./dist/index.d.ts",
+  "keywords": [
+    "socket",
+    "websocket",
+    "koa",
+    "socket-js",
+    "websocket-js"
+  ],
+  "author": "summer.li",
+  "license": "ISC",
+  "scripts": {
+    "start": "set DEBUG=ssocket* & node ./app.js",
+    "test": "rm -fr ./dist & set DEBUG=ssocket:code* & tsc --outDir ./dist & node ./app.js",
+    "tsc": "rm -fr ./dist & tsc --outDir ./dist",
+    "types": "tsc -d --emitDeclarationOnly --allowJs false --declarationDir ./@types"
+  },
+  "devDependencies": {
+    "@types/debug": "^4.1.5",
+    "@types/ioredis": "^4.17.11",
+    "@types/node": "^14.14.21",
+    "@types/ws": "^7.4.0"
+  },
+  "dependencies": {
+    "ioredis": "^4.19.4",
+    "path-to-regexp": "^6.2.0",
+    "typescript": "^4.1.3",
+    "ws": "^7.4.2"
+  }
+}
