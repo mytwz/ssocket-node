@@ -3,6 +3,15 @@
 
 ## 使用说明
 
+### [点击安装客户端程序](https://github.com/mytwz/ssocket-js)
+```javascript
+npm i -s ssocket-js
+```
+### 安装服务端程序
+```javascript
+npm i -s ssocket
+```
+
 ### 运行方式
 
 ```javascript
