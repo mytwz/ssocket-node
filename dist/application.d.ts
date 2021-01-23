@@ -7,7 +7,12 @@ import { Router } from "./router";
 export interface SOptions extends ServerOptions {
     redis?: Options;
     protos?: {
-        [key: string]: any;
+        request?: {
+            [key: string]: any;
+        };
+        response?: {
+            [key: string]: any;
+        };
     };
     [key: string]: any;
 }

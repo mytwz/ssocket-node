@@ -42,7 +42,7 @@ type ProtosObjs = {
 
 type ProtosConfig = { [name: string]: ProtosObjs }
 
-const ProtosCode = new class Protos {
+class Protos {
     private protos: ProtosConfig = {};
     parse(protos_config: { [name: string]: any }): void {
         for (let key in protos_config) {
@@ -277,6 +277,9 @@ const ProtosCode = new class Protos {
 
 }
 
+const RequestProtos = new Protos();
+const ResponseProtos = new Protos();
+
 export enum PackageType {
     /**握手 */
     shakehands = 0,
@@ -327,13 +330,18 @@ export interface Package {
     [key: string]: any;
 }
 
-let isProtos = false;
 
 /**
  * 配置 Protos 文件
  * @param config 
  */
-export function parseProtosJson(config: any){ ProtosCode.parse(config); isProtos = true; }
+export function parseRequestJson(config: any){ RequestProtos.parse(config); }
+
+/**
+ * 配置 Protos 文件
+ * @param config 
+ */
+export function parseResponseJson(config: any){ ResponseProtos.parse(config); }
 
 /**
  * 消息封包
@@ -366,7 +374,7 @@ export function encode(type: PackageType, package_data?: PackageData | Shakehand
 
     if(PackageType.data == type){
         let { path = "", request_id = 0, status = 0, msg = "", data } = <PackageData>package_data || {};
-        let _data: Buffer       =  ProtosCode.encode(path, data);
+        let _data: Buffer       =  ResponseProtos.encode(path, data);
 
         if(_data.length > 128){
             _data               = zlib.gzipSync(_data)
@@ -456,7 +464,7 @@ export function decode(_buffer: Buffer): Package | ShakehandsPackageData {
                     data_buffer = zlib.gunzipSync(data_buffer);
                 }
         
-                let data        = ProtosCode.decode(path, data_buffer)
+                let data        = RequestProtos.decode(path, data_buffer)
                 
                 return { type, request_id, path, data }
             }

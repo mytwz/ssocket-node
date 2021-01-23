@@ -21,7 +21,11 @@ const logger = debug("application")
 
 export interface SOptions extends ServerOptions {
     redis?: Options,
-    protos?: { [key: string]: any };
+    protos?: {
+        request?: {[key: string]: any};
+        response?: {[key: string]: any};
+        
+    };
     [key: string]: any;
 }
 
@@ -37,9 +41,12 @@ export class Application extends EventEmitter {
 
     constructor(private opts: SOptions) {
         super();
-        this.__adapter = new Adapter(this.opts?.redis);
+        this.__adapter = new Adapter(this.opts.redis);
         this.__server = new Server(this.opts, () => this.emit("start-up"));
-        this.opts.protos && Code.parseProtosJson(this.opts.protos)
+        if(this.opts.protos){
+            if(this.opts.protos.request) Code.parseRequestJson(this.opts.protos.request)
+            if(this.opts.protos.response) Code.parseResponseJson(this.opts.protos.response)
+        }
 
         this.__server.on("connection", (socket: WebSocket, req: IncomingMessage) => {
             logger("connection", { url: req.url, rawHeaders: req.rawHeaders })

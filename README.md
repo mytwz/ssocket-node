@@ -61,52 +61,55 @@ httpServer.listen(8080, function(){
 const server = new Ssocket({
     /**protos 开启压缩并配置：注 当数据量大于 128 字节的时候自动开启 GZIP 压缩  */
     protos:{ // 非必传
-        /*request path*/"test":{
-            /**
-             * [required单字段|repeated重复字段|message自定义结构] [string|uint[8|16|32]|float|double] fieldname: 序号同级唯一
-             */
-            "required string username": 0,
-            "required uint8 age": 1,
-            "required uint32 amount": 2,
-            "required string avatar": 3,
-            "required Data test": 4,
-            "message Data": {
-                "required string usernmae": 0,
-                "repeated List list": 1,
-                "message List": {
-                    "required uint32 id": 0,
+        // 配置请求编码
+        request:{
+            "test":{
+                /**
+                 * [required单字段|repeated重复字段|message自定义结构] [string|uint[8|16|32]|float|double] fieldname: 序号同级唯一
+                 */
+                "required string username": 0,
+            }
+        },
+        // 配置响应编码
+        response:{
+            "test":{
+                /**
+                 * [required单字段|repeated重复字段|message自定义结构] [string|uint[8|16|32]|float|double] fieldname: 序号同级唯一
+                 */
+                "required string username": 0,
+                "required uint8 age": 1,
+                "required uint32 amount": 2,
+                "required string avatar": 3,
+                "required Data test": 4,
+                "message Data": {
+                    "required string usernmae": 0,
+                    "repeated List list": 1,
+                    "message List": {
+                        "required uint32 id": 0,
+                    },
                 },
-            },
+            }
+            /*request path*/
+            // {
+            //     username:"测试账号",
+            //     age:12,
+            //     amount: 30000,
+            //     avatar:"https://12123123.jpg",
+            //     test:{
+            //         usernmae: "测试账号2",
+            //         ids:[1,3,4,5,6,7,4],
+            //         list:[
+            //             {id:123},{id:12},{id:23},{id:2123}
+            //         ]
+            //     }
+            // }
         }
-        // {
-        //     username:"测试账号",
-        //     age:12,
-        //     amount: 30000,
-        //     avatar:"https://12123123.jpg",
-        //     test:{
-        //         usernmae: "测试账号2",
-        //         ids:[1,3,4,5,6,7,4],
-        //         list:[
-        //             {id:123},{id:12},{id:23},{id:2123}
-        //         ]
-        //     }
-        // }
     }
 })
 
 server.router.ONPath("test", function(ctx, next){
     console.log(ctx.data)// {
     //     username:"测试账号",
-    //     age:12,
-    //     amount: 30000,
-    //     avatar:"https://12123123.jpg",
-    //     test:{
-    //         usernmae: "测试账号2",
-    //         ids:[1,3,4,5,6,7,4],
-    //         list:[
-    //             {id:123},{id:12},{id:23},{id:2123}
-    //         ]
-    //     }
     // }
     return {
         username: `登录成功，欢迎${ctx.data.usernmae}`
@@ -116,16 +119,6 @@ server.router.ONPath("test", function(ctx, next){
 // 前端
 client.request("test", {
     username:"测试账号",
-    age:12,
-    amount: 30000,
-    avatar:"https://12123123.jpg",
-    test:{
-        usernmae: "测试账号2",
-        ids:[1,3,4,5,6,7,4],
-        list:[
-            {id:123},{id:12},{id:23},{id:2123}
-        ]
-    }
 }, function(ctx){
     console.log("返回状态", ctx.status)// 200
     console.log("返回说明", ctx.msg)// ok

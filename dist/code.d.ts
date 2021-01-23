@@ -53,7 +53,12 @@ export interface Package {
  * 配置 Protos 文件
  * @param config
  */
-export declare function parseProtosJson(config: any): void;
+export declare function parseRequestJson(config: any): void;
+/**
+ * 配置 Protos 文件
+ * @param config
+ */
+export declare function parseResponseJson(config: any): void;
 /**
  * 消息封包
  * - +------+----------------------------------+------+

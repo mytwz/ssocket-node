@@ -16,7 +16,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.expandStatusCode = exports.StatusCode = exports.decode = exports.encode = exports.parseProtosJson = exports.SocketStatus = exports.PackageType = void 0;
+exports.expandStatusCode = exports.StatusCode = exports.decode = exports.encode = exports.parseResponseJson = exports.parseRequestJson = exports.SocketStatus = exports.PackageType = void 0;
 var zlib_1 = __importDefault(require("zlib"));
 var logger_1 = __importDefault(require("./logger"));
 var logger = logger_1.default("code");
@@ -42,7 +42,7 @@ var DataType;
     DataType["string"] = "string";
     DataType["message"] = "message";
 })(DataType || (DataType = {}));
-var ProtosCode = new /** @class */ (function () {
+var Protos = /** @class */ (function () {
     function Protos() {
         this.protos = {};
     }
@@ -273,6 +273,8 @@ var ProtosCode = new /** @class */ (function () {
     };
     return Protos;
 }());
+var RequestProtos = new Protos();
+var ResponseProtos = new Protos();
 var PackageType;
 (function (PackageType) {
     /**握手 */
@@ -296,13 +298,18 @@ var SocketStatus;
     /**关闭 */
     SocketStatus[SocketStatus["CLOSE"] = 4] = "CLOSE";
 })(SocketStatus = exports.SocketStatus || (exports.SocketStatus = {}));
-var isProtos = false;
 /**
  * 配置 Protos 文件
  * @param config
  */
-function parseProtosJson(config) { ProtosCode.parse(config); isProtos = true; }
-exports.parseProtosJson = parseProtosJson;
+function parseRequestJson(config) { RequestProtos.parse(config); }
+exports.parseRequestJson = parseRequestJson;
+/**
+ * 配置 Protos 文件
+ * @param config
+ */
+function parseResponseJson(config) { ResponseProtos.parse(config); }
+exports.parseResponseJson = parseResponseJson;
 /**
  * 消息封包
  * - +------+----------------------------------+------+
@@ -333,7 +340,7 @@ exports.parseProtosJson = parseProtosJson;
 function encode(type, package_data) {
     if (PackageType.data == type) {
         var _a = package_data || {}, _b = _a.path, path = _b === void 0 ? "" : _b, _c = _a.request_id, request_id = _c === void 0 ? 0 : _c, _d = _a.status, status_1 = _d === void 0 ? 0 : _d, _e = _a.msg, msg = _e === void 0 ? "" : _e, data = _a.data;
-        var _data = ProtosCode.encode(path, data);
+        var _data = ResponseProtos.encode(path, data);
         if (_data.length > 128) {
             _data = zlib_1.default.gzipSync(_data);
         }
@@ -425,7 +432,7 @@ function decode(_buffer) {
                 if (data_buffer.length > 2 && data_buffer.slice(0, 2).readUInt16BE() == 0x8b1f) {
                     data_buffer = zlib_1.default.gunzipSync(data_buffer);
                 }
-                var data = ProtosCode.decode(path, data_buffer);
+                var data = RequestProtos.decode(path, data_buffer);
                 return { type: type, request_id: request_id, path: path, data: data };
             }
             else if (type == PackageType.heartbeat) {

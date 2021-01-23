@@ -90,13 +90,17 @@ var logger = logger_1.default("application");
 var Application = /** @class */ (function (_super) {
     __extends(Application, _super);
     function Application(opts) {
-        var _a;
         var _this = _super.call(this) || this;
         _this.opts = opts;
         _this.__router = new router_1.Router();
-        _this.__adapter = new adapter_1.Adapter((_a = _this.opts) === null || _a === void 0 ? void 0 : _a.redis);
+        _this.__adapter = new adapter_1.Adapter(_this.opts.redis);
         _this.__server = new ws_1.Server(_this.opts, function () { return _this.emit("start-up"); });
-        _this.opts.protos && Code.parseProtosJson(_this.opts.protos);
+        if (_this.opts.protos) {
+            if (_this.opts.protos.request)
+                Code.parseRequestJson(_this.opts.protos.request);
+            if (_this.opts.protos.response)
+                Code.parseResponseJson(_this.opts.protos.response);
+        }
         _this.__server.on("connection", function (socket, req) {
             logger("connection", { url: req.url, rawHeaders: req.rawHeaders });
             var client = new client_1.SWebSocket(socket);
