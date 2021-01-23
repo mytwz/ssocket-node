@@ -89,20 +89,6 @@ const server = new Ssocket({
                     },
                 },
             }
-            /*request path*/
-            // {
-            //     username:"测试账号",
-            //     age:12,
-            //     amount: 30000,
-            //     avatar:"https://12123123.jpg",
-            //     test:{
-            //         usernmae: "测试账号2",
-            //         ids:[1,3,4,5,6,7,4],
-            //         list:[
-            //             {id:123},{id:12},{id:23},{id:2123}
-            //         ]
-            //     }
-            // }
         }
     }
 })
