@@ -4,33 +4,33 @@
 ## 使用说明
 
 ### [点击安装客户端程序](https://github.com/mytwz/ssocket-js)
-```javascript
-npm i -s ssocket-js
-```
-### 安装服务端程序
-```javascript
-npm i -s ssocket
-```
 
 ### 运行方式
-
-```javascript
+#### 脚本示例
+```shell
+mkdir socket_test
+cd socket_test
+npm init --yes
+npm i -s ssocket 
+vim app.js
+# 输入此内容
 // TS 引入方式 import Ssocket from "ssocket"
 const Ssocket = require("ssocket").default;
 const server = new Ssocket({ 
-    port: 8080,
-    redis:{ // 非必传, 用于服务集群做消息同步
-        prefix: 'im',
-        host: '127.0.0.1',
-        port: '6379',
-        expire: 60,
-    },
+    port: 8080
 });
 server.on("start-up", function(){
     console.log("启动成功")
 })
+
+# 然后执行
+# Node 安装自动百度
+node app.js
+// 控制台打印 启动成功
+
 ```
 
+#### 其他配置
 ```javascript
 const http = require("http")
 const Ssocket = require("ssocket").default;
