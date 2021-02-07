@@ -154,11 +154,11 @@ class Protos {
                 offset += 1;
                 break;
             case DataType.uint16:
-                buffer.writeInt16BE(+value, offset);
+                buffer.writeUInt16BE(+value, offset);
                 offset += 2;
                 break;
             case DataType.uint32:
-                buffer.writeInt32BE(+value, offset);
+                buffer.writeUInt32BE(+value, offset);
                 offset += 4;
                 break;
             case DataType.uint64:
@@ -176,7 +176,7 @@ class Protos {
             case DataType.string:
                 // Encode length
                 let length = Buffer.byteLength(value + "");
-                buffer.writeInt32BE(+length, offset);
+                buffer.writeUInt32BE(+length, offset);
                 offset += 4;
                 // write string
                 buffer.write(value + "", offset, length);
@@ -187,7 +187,7 @@ class Protos {
                 if (message) {
                     let tmpBuffer = Buffer.alloc(Buffer.byteLength(JSON.stringify(value)) * 2);
                     let length = this.write(message, value, tmpBuffer);
-                    buffer.writeInt32BE(+length, offset);
+                    buffer.writeUInt32BE(+length, offset);
                     offset += 4;
                     tmpBuffer.copy(buffer, offset, 0, length);
                     offset += length;
@@ -381,13 +381,13 @@ export function encode(type: PackageType, package_data?: PackageData | Shakehand
         }
 
         let _type:Buffer        = Buffer.allocUnsafe(1);   _type.writeUInt8(+type);
-        let _request_id:Buffer  = Buffer.allocUnsafe(4);   _request_id.writeInt32BE(+request_id);
+        let _request_id:Buffer  = Buffer.allocUnsafe(4);   _request_id.writeUInt32BE(+request_id);
         let _path:Buffer        = Buffer.from(path);
-        let _path_length:Buffer = Buffer.allocUnsafe(4);   _path_length.writeInt32BE(_path.length);
-        let _status:Buffer      = Buffer.allocUnsafe(4);   _status.writeInt32BE(+status);
+        let _path_length:Buffer = Buffer.allocUnsafe(4);   _path_length.writeUInt32BE(_path.length);
+        let _status:Buffer      = Buffer.allocUnsafe(4);   _status.writeUInt32BE(+status);
         let _msg:Buffer         = Buffer.from(msg);
-        let _msg_length:Buffer  = Buffer.allocUnsafe(4);   _msg_length.writeInt32BE(_msg.length);
-        let _data_length:Buffer = Buffer.allocUnsafe(4);   _data_length.writeInt32BE(_data.length);
+        let _msg_length:Buffer  = Buffer.allocUnsafe(4);   _msg_length.writeUInt32BE(_msg.length);
+        let _data_length:Buffer = Buffer.allocUnsafe(4);   _data_length.writeUInt32BE(_data.length);
         
         return Buffer.concat([
             _type,/*1B*/ 
@@ -410,7 +410,7 @@ export function encode(type: PackageType, package_data?: PackageData | Shakehand
         let {  id, ack } = <ShakehandsPackageData>package_data || {};
         let _type:Buffer            = Buffer.allocUnsafe(1);   _type.writeUInt8(+type);
         let _id:Buffer              = Buffer.from(id);
-        let _id_length:Buffer       = Buffer.allocUnsafe(4);   _id_length.writeInt32BE(_id.length);
+        let _id_length:Buffer       = Buffer.allocUnsafe(4);   _id_length.writeUInt32BE(_id.length);
         let _ack: Buffer            = Buffer.allocUnsafe(1);   _ack.writeUInt8(+ack);
 
         return Buffer.concat([_type, _id_length, _id, _ack]);

@@ -151,11 +151,11 @@ var Protos = /** @class */ (function () {
                 offset += 1;
                 break;
             case DataType.uint16:
-                buffer.writeInt16BE(+value, offset);
+                buffer.writeUInt16BE(+value, offset);
                 offset += 2;
                 break;
             case DataType.uint32:
-                buffer.writeInt32BE(+value, offset);
+                buffer.writeUInt32BE(+value, offset);
                 offset += 4;
                 break;
             case DataType.uint64:
@@ -173,7 +173,7 @@ var Protos = /** @class */ (function () {
             case DataType.string:
                 // Encode length
                 var length_2 = Buffer.byteLength(value + "");
-                buffer.writeInt32BE(+length_2, offset);
+                buffer.writeUInt32BE(+length_2, offset);
                 offset += 4;
                 // write string
                 buffer.write(value + "", offset, length_2);
@@ -184,7 +184,7 @@ var Protos = /** @class */ (function () {
                 if (message) {
                     var tmpBuffer = Buffer.alloc(Buffer.byteLength(JSON.stringify(value)) * 2);
                     var length_3 = this.write(message, value, tmpBuffer);
-                    buffer.writeInt32BE(+length_3, offset);
+                    buffer.writeUInt32BE(+length_3, offset);
                     offset += 4;
                     tmpBuffer.copy(buffer, offset, 0, length_3);
                     offset += length_3;
@@ -347,17 +347,17 @@ function encode(type, package_data) {
         var _type = Buffer.allocUnsafe(1);
         _type.writeUInt8(+type);
         var _request_id = Buffer.allocUnsafe(4);
-        _request_id.writeInt32BE(+request_id);
+        _request_id.writeUInt32BE(+request_id);
         var _path = Buffer.from(path);
         var _path_length = Buffer.allocUnsafe(4);
-        _path_length.writeInt32BE(_path.length);
+        _path_length.writeUInt32BE(_path.length);
         var _status = Buffer.allocUnsafe(4);
-        _status.writeInt32BE(+status_1);
+        _status.writeUInt32BE(+status_1);
         var _msg = Buffer.from(msg);
         var _msg_length = Buffer.allocUnsafe(4);
-        _msg_length.writeInt32BE(_msg.length);
+        _msg_length.writeUInt32BE(_msg.length);
         var _data_length = Buffer.allocUnsafe(4);
-        _data_length.writeInt32BE(_data.length);
+        _data_length.writeUInt32BE(_data.length);
         return Buffer.concat([
             _type,
             _request_id,
@@ -383,7 +383,7 @@ function encode(type, package_data) {
         _type.writeUInt8(+type);
         var _id = Buffer.from(id);
         var _id_length = Buffer.allocUnsafe(4);
-        _id_length.writeInt32BE(_id.length);
+        _id_length.writeUInt32BE(_id.length);
         var _ack = Buffer.allocUnsafe(1);
         _ack.writeUInt8(+ack);
         return Buffer.concat([_type, _id_length, _id, _ack]);
