@@ -15,9 +15,12 @@ import { SWebSocket } from "./client";
 import WebSocket from "ws";
 import { Router } from "./router";
 import CODE, * as Code from "./code"
+import DEBUG from "debug";
 import debug from "./logger";
 
 const logger = debug("application")
+
+type loggerFun = (name: string, message: string) => void
 
 export interface SOptions extends ServerOptions {
     redis?: Options,
@@ -26,6 +29,7 @@ export interface SOptions extends ServerOptions {
         response?: {[key: string]: any};
         
     };
+    logger: boolean | string | loggerFun;
     [key: string]: any;
 }
 
@@ -46,6 +50,16 @@ export class Application extends EventEmitter {
         if(this.opts.protos){
             if(this.opts.protos.request) Code.parseRequestJson(this.opts.protos.request)
             if(this.opts.protos.response) Code.parseResponseJson(this.opts.protos.response)
+        }
+        
+        if(this.opts.logger instanceof Function){
+            DEBUG.prototype.logger = this.opts.logger;
+        }
+        else if(typeof this.opts.logger == "string"){
+            DEBUG.enable(this.opts.logger)
+        }
+        else if(this.opts.logger){
+            DEBUG.enable("*")
         }
 
         this.__server.on("connection", (socket: WebSocket, req: IncomingMessage) => {

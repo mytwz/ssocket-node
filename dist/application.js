@@ -85,6 +85,7 @@ var adapter_1 = require("./adapter");
 var client_1 = require("./client");
 var router_1 = require("./router");
 var code_1 = __importStar(require("./code")), Code = code_1;
+var debug_1 = __importDefault(require("debug"));
 var logger_1 = __importDefault(require("./logger"));
 var logger = logger_1.default("application");
 var Application = /** @class */ (function (_super) {
@@ -100,6 +101,15 @@ var Application = /** @class */ (function (_super) {
                 Code.parseRequestJson(_this.opts.protos.request);
             if (_this.opts.protos.response)
                 Code.parseResponseJson(_this.opts.protos.response);
+        }
+        if (_this.opts.logger instanceof Function) {
+            debug_1.default.prototype.logger = _this.opts.logger;
+        }
+        else if (typeof _this.opts.logger == "string") {
+            debug_1.default.enable(_this.opts.logger);
+        }
+        else if (_this.opts.logger) {
+            debug_1.default.enable("*");
         }
         _this.__server.on("connection", function (socket, req) {
             logger("connection", { url: req.url, rawHeaders: req.rawHeaders });

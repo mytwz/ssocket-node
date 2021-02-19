@@ -13,6 +13,9 @@ const server = new Ssocket({
         test:{
             "required string username": 0
         }
+    },
+    logger: /*true|"ssocket*"*/function(n, args){
+        console.log(n, args)
     }
 })
 

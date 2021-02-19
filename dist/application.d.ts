@@ -4,6 +4,7 @@ import { EventEmitter } from 'events';
 import { Options } from "./adapter";
 import { Adapter } from "./adapter";
 import { Router } from "./router";
+declare type loggerFun = (name: string, message: string) => void;
 export interface SOptions extends ServerOptions {
     redis?: Options;
     protos?: {
@@ -14,6 +15,7 @@ export interface SOptions extends ServerOptions {
             [key: string]: any;
         };
     };
+    logger: boolean | string | loggerFun;
     [key: string]: any;
 }
 export declare class Application extends EventEmitter {
@@ -91,3 +93,4 @@ export declare class Application extends EventEmitter {
      */
     sendBroadcast(event: string, data: any, status?: number, msg?: string): Promise<void>;
 }
+export {};

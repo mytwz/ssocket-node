@@ -1,1 +1,1 @@
-export default function (name: string): (n: string, ...args: any) => void;
+export default function (name: string): (n: string, ...args: any) => any;

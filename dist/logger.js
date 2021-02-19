@@ -21,6 +21,15 @@ function default_1(name) {
         for (var _i = 1; _i < arguments.length; _i++) {
             args[_i - 1] = arguments[_i];
         }
+        if (debug_1.default.prototype.logger instanceof Function) {
+            return debug_1.default.prototype.logger(n, JSON.stringify(args));
+        }
+        else if (debug_1.default.prototype.logger instanceof String) {
+            debug_1.default.enable(debug_1.default.prototype.logger);
+        }
+        else if (debug_1.default.prototype.logger) {
+            debug_1.default.enable("*");
+        }
         debug_1.default("ssocket:" + name).extend(n)("[%s]: %s", date_format(), JSON.stringify(args));
     };
 }

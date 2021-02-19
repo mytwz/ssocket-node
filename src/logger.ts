@@ -17,6 +17,15 @@ function date_format() {
 
 export default function (name: string) {
     return function (n: string, ...args: any) {
+        if(debug.prototype.logger instanceof Function){
+            return debug.prototype.logger(n, JSON.stringify(args));
+        }
+        else if(debug.prototype.logger instanceof String){
+            debug.enable(debug.prototype.logger)
+        }
+        else if(debug.prototype.logger){
+            debug.enable("*")
+        }
         debug("ssocket:" + name).extend(n)("[%s]: %s", date_format(), JSON.stringify(args));
     }
 }
