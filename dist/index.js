@@ -25,7 +25,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Utils = exports.CODE = exports.Code = void 0;
+exports.Logger = exports.Utils = exports.CODE = exports.Code = void 0;
 var application_1 = require("./application");
 exports.Code = __importStar(require("./code"));
 var code_1 = require("./code");
@@ -33,4 +33,6 @@ Object.defineProperty(exports, "CODE", { enumerable: true, get: function () { re
 exports.Utils = __importStar(require("./utils"));
 __exportStar(require("./router"), exports);
 __exportStar(require("./client"), exports);
+var logger_1 = require("./logger");
+Object.defineProperty(exports, "Logger", { enumerable: true, get: function () { return __importDefault(logger_1).default; } });
 exports.default = application_1.Application;

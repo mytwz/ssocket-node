@@ -1,6 +1,6 @@
 {
   "name": "ssocket",
-  "version": "1.0.39",
+  "version": "1.0.40",
   "description": "仿 Koa 中间件控制的 WebSocket 服务",
   "main": "./dist/index.js",
   "typings": "./dist/index.d.ts",
