@@ -19,6 +19,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.expandStatusCode = exports.StatusCode = exports.decode = exports.encode = exports.parseResponseJson = exports.parseRequestJson = exports.SocketStatus = exports.PackageType = void 0;
 var zlib_1 = __importDefault(require("zlib"));
 var logger_1 = __importDefault(require("./logger"));
+var UINT32_MAX = 0xFFFFFFFF;
+Buffer.prototype.writeUInt64BE = function (value, offset) {
+    if (offset === void 0) { offset = 0; }
+    var big = ~~(value / UINT32_MAX);
+    var low = (value % UINT32_MAX) - big;
+    this.writeUInt32BE(big, offset);
+    this.writeUInt32BE(low, offset + 4);
+    return offset + 4;
+};
+Buffer.prototype.readUInt64BE = function (offset) {
+    if (offset === void 0) { offset = 0; }
+    var hex = this.slice(offset, offset + 8).toString("hex");
+    return parseInt(hex, 16);
+};
 var logger = logger_1.default("code");
 /**字段类型 */
 var FieldType;
@@ -159,7 +173,7 @@ var Protos = /** @class */ (function () {
                 offset += 4;
                 break;
             case DataType.uint64:
-                buffer.writeBigUInt64BE(+value, offset);
+                buffer.writeUInt64BE(+value, offset);
                 offset += 8;
                 break;
             case DataType.float:
@@ -243,7 +257,7 @@ var Protos = /** @class */ (function () {
                 offset += 4;
                 break;
             case DataType.uint64:
-                value = buffer.readBigUInt64BE(offset);
+                value = buffer.readUInt64BE(offset);
                 offset += 8;
                 break;
             case DataType.float:
@@ -374,7 +388,7 @@ function encode(type, package_data) {
         var _type = Buffer.allocUnsafe(1);
         _type.writeUInt8(+type);
         var _data = Buffer.allocUnsafe(8);
-        _data.writeDoubleBE(Date.now());
+        _data.writeUInt64BE(Date.now());
         return Buffer.concat([_type, _data]);
     }
     else if (type == PackageType.shakehands) {
@@ -436,7 +450,7 @@ function decode(_buffer) {
                 return { type: type, request_id: request_id, path: path, data: data };
             }
             else if (type == PackageType.heartbeat) {
-                var data = buffer.slice(index, index += 8).readDoubleBE();
+                var data = buffer.slice(index, index += 8).readUInt64BE();
                 return { type: type, data: data };
             }
             else if (type == PackageType.shakehands) {

@@ -1,6 +1,11 @@
-/// <reference types="node" />
 import { Application } from "./application";
 import { SWebSocket } from "./client";
+declare global {
+    interface Buffer {
+        writeUInt64BE(value: number, offset?: number): number;
+        readUInt64BE(offset?: number): number;
+    }
+}
 export declare enum PackageType {
     /**握手 */
     shakehands = 0,

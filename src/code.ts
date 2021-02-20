@@ -3,6 +3,29 @@ import debug from "./logger";
 import { Application } from "./application"
 import { SWebSocket } from "./client"
 
+const UINT32_MAX = 0xFFFFFFFF;
+
+declare global {
+    interface Buffer {
+        writeUInt64BE(value: number, offset?: number): number;
+        readUInt64BE(offset?: number): number;
+    }
+}
+
+Buffer.prototype.writeUInt64BE = function(value: number, offset: number = 0): number {
+    let big = ~~(value / UINT32_MAX);
+    let low = (value % UINT32_MAX) - big;
+    this.writeUInt32BE(big, offset);
+    this.writeUInt32BE(low, offset + 4);
+    return offset + 4;
+}
+
+Buffer.prototype.readUInt64BE = function(offset: number = 0): number {
+    let hex = this.slice(offset, offset + 8).toString("hex");
+    return parseInt(hex, 16);
+}
+
+
 const logger = debug("code")
 
 /**字段类型 */
@@ -162,7 +185,7 @@ class Protos {
                 offset += 4;
                 break;
             case DataType.uint64:
-                buffer.writeBigUInt64BE(<bigint><unknown>+value, offset);
+                buffer.writeUInt64BE(+value, offset);
                 offset += 8;
                 break;
             case DataType.float:
@@ -245,7 +268,7 @@ class Protos {
                 offset += 4;
                 break;
             case DataType.uint64:
-                value = buffer.readBigUInt64BE(offset)
+                value = buffer.readUInt64BE(offset)
                 offset += 8;
                 break;
             case DataType.float:
@@ -403,7 +426,7 @@ export function encode(type: PackageType, package_data?: PackageData | Shakehand
     }
     else if(type == PackageType.heartbeat){
         let _type:Buffer            = Buffer.allocUnsafe(1);   _type.writeUInt8(+type);
-        let _data:Buffer            = Buffer.allocUnsafe(8);   _data.writeDoubleBE(Date.now());
+        let _data:Buffer            = Buffer.allocUnsafe(8);   _data.writeUInt64BE(Date.now());
         return Buffer.concat([_type, _data]);
     }
     else if(type == PackageType.shakehands){
@@ -469,7 +492,7 @@ export function decode(_buffer: Buffer): Package | ShakehandsPackageData {
                 return { type, request_id, path, data }
             }
             else if (type == PackageType.heartbeat){
-                let data        = buffer.slice(index, index += 8).readDoubleBE();
+                let data        = buffer.slice(index, index += 8).readUInt64BE();
                 return { type, data }
             }
             else if(type == PackageType.shakehands){
