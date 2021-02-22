@@ -38,9 +38,9 @@ export class SWebSocket extends EventEmitter {
     }
 
     private onclose(code: number, reason: string){
-        if(this.status == Code.SocketStatus.CLOSE) return;
-        if(this.socket.readyState != WebSocket.CLOSED) this.socket.close(code, reason)
         clearTimeout(this.ping_timeout_id);
+        if(this.status == Code.SocketStatus.CLOSE) return;
+        if(this.socket.readyState != WebSocket.CLOSED) return this.socket.close(code, reason)
         this.status = Code.SocketStatus.CLOSE
         this.socket.removeAllListeners();
         this.socket = <WebSocket><unknown>null;

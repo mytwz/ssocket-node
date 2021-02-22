@@ -105,7 +105,7 @@ var SWebSocket = /** @class */ (function (_super) {
         if (this.status == Code.SocketStatus.CLOSE)
             return;
         if (this.socket.readyState != ws_1.default.CLOSED)
-            this.socket.close(code, reason);
+            return this.socket.close(code, reason);
         clearTimeout(this.ping_timeout_id);
         this.status = Code.SocketStatus.CLOSE;
         this.socket.removeAllListeners();
