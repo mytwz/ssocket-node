@@ -102,11 +102,11 @@ var SWebSocket = /** @class */ (function (_super) {
     SWebSocket.prototype.getSocket = function () { return this.socket; };
     SWebSocket.prototype.getStatus = function () { return this.status; };
     SWebSocket.prototype.onclose = function (code, reason) {
+        clearTimeout(this.ping_timeout_id);
         if (this.status == Code.SocketStatus.CLOSE)
             return;
         if (this.socket.readyState != ws_1.default.CLOSED)
             return this.socket.close(code, reason);
-        clearTimeout(this.ping_timeout_id);
         this.status = Code.SocketStatus.CLOSE;
         this.socket.removeAllListeners();
         this.socket = null;

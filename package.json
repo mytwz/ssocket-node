@@ -1,9 +1,9 @@
 {
   "name": "ssocket",
-  "version": "1.0.42",
+  "version": "1.0.44",
   "description": "仿 Koa 中间件控制的 WebSocket 服务",
   "main": "./dist/index.js",
-  "typings": "./dist/index.d.ts",
+  "typings": "./types/index.d.ts",
   "keywords": [
     "socket",
     "websocket",
@@ -17,7 +17,7 @@
     "start": "set DEBUG=ssocket* & node ./app.js",
     "test": "rm -fr ./dist & set DEBUG=ssocket:code* & tsc --outDir ./dist & node ./app.js",
     "tsc": "rm -fr ./dist & tsc --outDir ./dist",
-    "types": "tsc -d --emitDeclarationOnly --allowJs false --declarationDir ./@types"
+    "types": "rm -fr ./types & tsc -d --emitDeclarationOnly --allowJs false --declarationDir ./types"
   },
   "devDependencies": {
     "@types/debug": "^4.1.5",
