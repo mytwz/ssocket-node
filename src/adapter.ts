@@ -2,8 +2,8 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description: 
- * @LastEditTime: 2021-01-22 15:13:35 +0800
- * @FilePath: \ssocket\src\adapter.ts
+ * @LastEditTime: 2021-03-23 18:10:13 +0800
+ * @FilePath: /ssocket/src/adapter.ts
  */
 
 import { SWebSocket } from "./client";
@@ -31,7 +31,7 @@ const SYNC_EVENTS: string[] = [
 export class Adapter {
 
     /**客户端集合 */
-    private clients: Map<string, SWebSocket> = new Map();
+    public clients: Map<string, SWebSocket> = new Map();
     /**Redis 订阅对象 */
     private sub_redis: Redis = <Redis><unknown>undefined;
     /**Redis  */

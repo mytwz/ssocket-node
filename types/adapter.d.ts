@@ -7,7 +7,7 @@ export interface Options extends RedisOptions {
 export declare class Adapter {
     private opts?;
     /**客户端集合 */
-    private clients;
+    clients: Map<string, SWebSocket>;
     /**Redis 订阅对象 */
     private sub_redis;
     /**Redis  */
