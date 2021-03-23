@@ -2,7 +2,7 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description: 
- * @LastEditTime: 2021-03-23 18:10:13 +0800
+ * @LastEditTime: 2021-03-23 18:12:39 +0800
  * @FilePath: /ssocket/src/adapter.ts
  */
 
@@ -31,7 +31,7 @@ const SYNC_EVENTS: string[] = [
 export class Adapter {
 
     /**客户端集合 */
-    public clients: Map<string, SWebSocket> = new Map();
+    private clients: Map<string, SWebSocket> = new Map();
     /**Redis 订阅对象 */
     private sub_redis: Redis = <Redis><unknown>undefined;
     /**Redis  */
@@ -206,7 +206,7 @@ export class Adapter {
             return rooms;
         }
     }
-    
+
     /**
      * 判断客户端是否存在啊某个房间
      * @param id 
