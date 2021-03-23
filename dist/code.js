@@ -1,39 +1,24 @@
 "use strict";
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    };
-    return function (d, b) {
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.expandStatusCode = exports.StatusCode = exports.decode = exports.encode = exports.parseResponseJson = exports.parseRequestJson = exports.SocketStatus = exports.PackageType = void 0;
-var zlib_1 = __importDefault(require("zlib"));
-var logger_1 = __importDefault(require("./logger"));
-var UINT32_MAX = 0xFFFFFFFF;
-Buffer.prototype.writeUInt64BE = function (value, offset) {
-    if (offset === void 0) { offset = 0; }
-    var big = ~~(value / UINT32_MAX);
-    var low = (value % UINT32_MAX) - big;
+const zlib_1 = __importDefault(require("zlib"));
+const logger_1 = __importDefault(require("./logger"));
+const UINT32_MAX = 0xFFFFFFFF;
+Buffer.prototype.writeUInt64BE = function (value, offset = 0) {
+    let big = ~~(value / UINT32_MAX);
+    let low = (value % UINT32_MAX) - big;
     this.writeUInt32BE(big, offset);
     this.writeUInt32BE(low, offset + 4);
     return offset + 4;
 };
-Buffer.prototype.readUInt64BE = function (offset) {
-    if (offset === void 0) { offset = 0; }
-    var hex = this.slice(offset, offset + 8).toString("hex");
+Buffer.prototype.readUInt64BE = function (offset = 0) {
+    let hex = this.slice(offset, offset + 8).toString("hex");
     return parseInt(hex, 16);
 };
-var logger = logger_1.default("code");
+const logger = logger_1.default("code");
 /**字段类型 */
 var FieldType;
 (function (FieldType) {
@@ -56,23 +41,23 @@ var DataType;
     DataType["string"] = "string";
     DataType["message"] = "message";
 })(DataType || (DataType = {}));
-var Protos = /** @class */ (function () {
-    function Protos() {
+class Protos {
+    constructor() {
         this.protos = {};
     }
-    Protos.prototype.parse = function (protos_config) {
-        for (var key in protos_config) {
+    parse(protos_config) {
+        for (let key in protos_config) {
             this.protos[key] = this.parseObject(protos_config[key]);
         }
-        logger("ProtosCode:parse", { protos_config: protos_config, proto: this.protos });
-    };
-    Protos.prototype.parseObject = function (obj) {
-        var proto = {};
-        var nestProtos = {};
-        var tags = {};
-        for (var name_1 in obj) {
-            var tag = obj[name_1];
-            var params = name_1.split(/\s+/);
+        logger("ProtosCode:parse", { protos_config, proto: this.protos });
+    }
+    parseObject(obj) {
+        let proto = {};
+        let nestProtos = {};
+        let tags = {};
+        for (let name in obj) {
+            let tag = obj[name];
+            let params = name.split(/\s+/);
             switch (params[0]) {
                 case FieldType.message:
                     if (params.length !== 2) {
@@ -99,66 +84,66 @@ var Protos = /** @class */ (function () {
         proto.__messages = nestProtos;
         proto.__tags = tags;
         return proto;
-    };
-    Protos.prototype.decode = function (protos_name, buffer) {
+    }
+    decode(protos_name, buffer) {
         if (this.protos[protos_name]) {
-            var data = {};
+            let data = {};
             this.read(this.protos[protos_name], data, buffer, 0);
-            logger("ProtosCode:decode", { data: data });
+            logger("ProtosCode:decode", { data });
             return data;
         }
         return buffer.length ? JSON.parse(buffer.toString() || "{}") : {};
-    };
-    Protos.prototype.encode = function (protos_name, data) {
+    }
+    encode(protos_name, data) {
         if (this.protos[protos_name] && data) {
-            var buffer = Buffer.alloc(Buffer.byteLength(JSON.stringify(data)) * 2);
-            var length_1 = this.write(this.protos[protos_name], data, buffer);
-            logger("ProtosCode:encode", { protos_name: protos_name, data: data, length: length_1 });
-            return buffer.slice(0, length_1);
+            let buffer = Buffer.alloc(Buffer.byteLength(JSON.stringify(data)) * 2);
+            let length = this.write(this.protos[protos_name], data, buffer);
+            logger("ProtosCode:encode", { protos_name, data, length });
+            return buffer.slice(0, length);
         }
         return Buffer.from(data ? JSON.stringify(data) : "");
-    };
-    Protos.prototype.writeTag = function (buffer, tag, offset) {
+    }
+    writeTag(buffer, tag, offset) {
         buffer.writeUInt8(+tag, offset++);
-        logger("ProtosCode:writeTag", { tag: tag, offset: offset });
+        logger("ProtosCode:writeTag", { tag, offset });
         return offset;
-    };
-    Protos.prototype.readTag = function (buffer, offset) {
-        var tag = buffer.readUInt8(offset++);
-        logger("ProtosCode:readTag", { offset: offset - 1, tag: tag });
+    }
+    readTag(buffer, offset) {
+        let tag = buffer.readUInt8(offset++);
+        logger("ProtosCode:readTag", { offset: offset - 1, tag });
         return tag;
-    };
-    Protos.prototype.write = function (protos, data, buffer) {
-        var offset = 0;
+    }
+    write(protos, data, buffer) {
+        let offset = 0;
         if (protos) {
-            logger("ProtosCode:write1", { data: data });
-            for (var name_2 in data) {
-                if (!!protos[name_2]) {
-                    var proto = protos[name_2];
-                    logger("ProtosCode:write2", { name: name_2, data: data[name_2], proto: proto });
+            logger("ProtosCode:write1", { data });
+            for (let name in data) {
+                if (!!protos[name]) {
+                    let proto = protos[name];
+                    logger("ProtosCode:write2", { name, data: data[name], proto });
                     switch (proto.option) {
                         case FieldType.required:
                         case FieldType.optional:
                             offset = this.writeTag(buffer, proto.tag, offset);
-                            offset = this.writeBody(data[name_2], proto.type, buffer, offset, protos);
+                            offset = this.writeBody(data[name], proto.type, buffer, offset, protos);
                             break;
                         case FieldType.repeated:
                             offset = this.writeTag(buffer, proto.tag, offset);
-                            buffer.writeInt32BE(+data[name_2].length, offset);
+                            buffer.writeInt32BE(+data[name].length, offset);
                             offset += 4;
-                            for (var i = 0, l = data[name_2].length; i < l; i++) {
-                                offset = this.writeBody(data[name_2][i], proto.type, buffer, offset, protos);
+                            for (let i = 0, l = data[name].length; i < l; i++) {
+                                offset = this.writeBody(data[name][i], proto.type, buffer, offset, protos);
                             }
                             break;
                     }
                 }
             }
         }
-        logger("ProtosCode:write3", { offset: offset });
+        logger("ProtosCode:write3", { offset });
         return offset;
-    };
-    Protos.prototype.writeBody = function (value, type, buffer, offset, protos) {
-        logger("ProtosCode:writeBody", { type: type, value: value, offset: offset });
+    }
+    writeBody(value, type, buffer, offset, protos) {
+        logger("ProtosCode:writeBody", { type, value, offset });
         switch (type) {
             case DataType.uint8:
                 buffer.writeUInt8(+value, offset);
@@ -186,53 +171,53 @@ var Protos = /** @class */ (function () {
                 break;
             case DataType.string:
                 // Encode length
-                var length_2 = Buffer.byteLength(value + "");
-                buffer.writeUInt32BE(+length_2, offset);
+                let length = Buffer.byteLength(value + "");
+                buffer.writeUInt32BE(+length, offset);
                 offset += 4;
                 // write string
-                buffer.write(value + "", offset, length_2);
-                offset += length_2;
+                buffer.write(value + "", offset, length);
+                offset += length;
                 break;
             default:
-                var message = protos.__messages[type];
+                let message = protos.__messages[type];
                 if (message) {
-                    var tmpBuffer = Buffer.alloc(Buffer.byteLength(JSON.stringify(value)) * 2);
-                    var length_3 = this.write(message, value, tmpBuffer);
-                    buffer.writeUInt32BE(+length_3, offset);
+                    let tmpBuffer = Buffer.alloc(Buffer.byteLength(JSON.stringify(value)) * 2);
+                    let length = this.write(message, value, tmpBuffer);
+                    buffer.writeUInt32BE(+length, offset);
                     offset += 4;
-                    tmpBuffer.copy(buffer, offset, 0, length_3);
-                    offset += length_3;
+                    tmpBuffer.copy(buffer, offset, 0, length);
+                    offset += length;
                 }
                 break;
         }
         return offset;
-    };
-    Protos.prototype.read = function (protos, data, buffer, offset) {
-        logger("ProtosCode:decode1", { offset: offset, data: data, protos: protos });
+    }
+    read(protos, data, buffer, offset) {
+        logger("ProtosCode:decode1", { offset, data, protos });
         if (!!protos) {
             while (offset < buffer.length) {
-                var tag = this.readTag(buffer, offset);
+                let tag = this.readTag(buffer, offset);
                 offset += 1;
-                var name_3 = protos.__tags[tag];
-                var proto = protos[name_3];
-                logger("ProtosCode:decode2", { offset: offset, tag: tag, name: name_3, proto: proto });
+                let name = protos.__tags[tag];
+                let proto = protos[name];
+                logger("ProtosCode:decode2", { offset, tag, name, proto });
                 switch (proto.option) {
                     case 'optional':
                     case 'required':
-                        var body = this.readBody(buffer, proto.type, offset, protos);
+                        let body = this.readBody(buffer, proto.type, offset, protos);
                         offset = body.offset;
-                        data[name_3] = body.value;
+                        data[name] = body.value;
                         break;
                     case 'repeated':
-                        if (!data[name_3]) {
-                            data[name_3] = [];
+                        if (!data[name]) {
+                            data[name] = [];
                         }
-                        var length_4 = buffer.readUInt32BE(offset);
+                        let length = buffer.readUInt32BE(offset);
                         offset += 4;
-                        for (var i = 0; i < length_4; i++) {
-                            var body_1 = this.readBody(buffer, proto.type, offset, protos);
-                            offset = body_1.offset;
-                            data[name_3].push(body_1.value);
+                        for (let i = 0; i < length; i++) {
+                            let body = this.readBody(buffer, proto.type, offset, protos);
+                            offset = body.offset;
+                            data[name].push(body.value);
                         }
                         break;
                 }
@@ -240,9 +225,9 @@ var Protos = /** @class */ (function () {
             return offset;
         }
         return 0;
-    };
-    Protos.prototype.readBody = function (buffer, type, offset, protos) {
-        var value = "";
+    }
+    readBody(buffer, type, offset, protos) {
+        let value = "";
         switch (type) {
             case DataType.uint8:
                 value = buffer.readUInt8(offset);
@@ -269,26 +254,25 @@ var Protos = /** @class */ (function () {
                 offset += 8;
                 break;
             case DataType.string:
-                var length_5 = buffer.readUInt32BE(offset);
+                let length = buffer.readUInt32BE(offset);
                 offset += 4;
-                value = buffer.toString('utf8', offset, offset += length_5);
+                value = buffer.toString('utf8', offset, offset += length);
                 break;
             default:
-                var message = protos.__messages[type];
+                let message = protos.__messages[type];
                 if (message) {
-                    var length_6 = buffer.readUInt32BE(offset);
+                    let length = buffer.readUInt32BE(offset);
                     offset += 4;
-                    this.read(message, value = {}, buffer.slice(offset, offset += length_6), 0);
+                    this.read(message, value = {}, buffer.slice(offset, offset += length), 0);
                 }
                 break;
         }
-        logger("ProtosCode:readBody", { offset: offset, type: type, value: value });
-        return { value: value, offset: offset };
-    };
-    return Protos;
-}());
-var RequestProtos = new Protos();
-var ResponseProtos = new Protos();
+        logger("ProtosCode:readBody", { offset, type, value });
+        return { value, offset };
+    }
+}
+const RequestProtos = new Protos();
+const ResponseProtos = new Protos();
 var PackageType;
 (function (PackageType) {
     /**握手 */
@@ -353,24 +337,24 @@ exports.parseResponseJson = parseResponseJson;
  */
 function encode(type, package_data) {
     if (PackageType.data == type) {
-        var _a = package_data || {}, _b = _a.path, path = _b === void 0 ? "" : _b, _c = _a.request_id, request_id = _c === void 0 ? 0 : _c, _d = _a.status, status_1 = _d === void 0 ? 0 : _d, _e = _a.msg, msg = _e === void 0 ? "" : _e, data = _a.data;
-        var _data = ResponseProtos.encode(path, data);
+        let { path = "", request_id = 0, status = 0, msg = "", data } = package_data || {};
+        let _data = ResponseProtos.encode(path, data);
         if (_data.length > 128) {
             _data = zlib_1.default.gzipSync(_data);
         }
-        var _type = Buffer.allocUnsafe(1);
+        let _type = Buffer.allocUnsafe(1);
         _type.writeUInt8(+type);
-        var _request_id = Buffer.allocUnsafe(4);
+        let _request_id = Buffer.allocUnsafe(4);
         _request_id.writeUInt32BE(+request_id);
-        var _path = Buffer.from(path);
-        var _path_length = Buffer.allocUnsafe(4);
+        let _path = Buffer.from(path);
+        let _path_length = Buffer.allocUnsafe(4);
         _path_length.writeUInt32BE(_path.length);
-        var _status = Buffer.allocUnsafe(4);
-        _status.writeUInt32BE(+status_1);
-        var _msg = Buffer.from(msg);
-        var _msg_length = Buffer.allocUnsafe(4);
+        let _status = Buffer.allocUnsafe(4);
+        _status.writeUInt32BE(+status);
+        let _msg = Buffer.from(msg);
+        let _msg_length = Buffer.allocUnsafe(4);
         _msg_length.writeUInt32BE(_msg.length);
-        var _data_length = Buffer.allocUnsafe(4);
+        let _data_length = Buffer.allocUnsafe(4);
         _data_length.writeUInt32BE(_data.length);
         return Buffer.concat([
             _type,
@@ -385,20 +369,20 @@ function encode(type, package_data) {
         ]);
     }
     else if (type == PackageType.heartbeat) {
-        var _type = Buffer.allocUnsafe(1);
+        let _type = Buffer.allocUnsafe(1);
         _type.writeUInt8(+type);
-        var _data = Buffer.allocUnsafe(8);
+        let _data = Buffer.allocUnsafe(8);
         _data.writeUInt64BE(Date.now());
         return Buffer.concat([_type, _data]);
     }
     else if (type == PackageType.shakehands) {
-        var _f = package_data || {}, id = _f.id, ack = _f.ack;
-        var _type = Buffer.allocUnsafe(1);
+        let { id, ack } = package_data || {};
+        let _type = Buffer.allocUnsafe(1);
         _type.writeUInt8(+type);
-        var _id = Buffer.from(id);
-        var _id_length = Buffer.allocUnsafe(4);
+        let _id = Buffer.from(id);
+        let _id_length = Buffer.allocUnsafe(4);
         _id_length.writeUInt32BE(_id.length);
-        var _ack = Buffer.allocUnsafe(1);
+        let _ack = Buffer.allocUnsafe(1);
         _ack.writeUInt8(+ack);
         return Buffer.concat([_type, _id_length, _id, _ack]);
     }
@@ -433,31 +417,31 @@ exports.encode = encode;
 function decode(_buffer) {
     try {
         if (Buffer.isBuffer(_buffer)) {
-            var index = 0;
-            var buffer = Buffer.from(_buffer);
-            var type = buffer.slice(index, index += 1).readUInt8();
+            let index = 0;
+            let buffer = Buffer.from(_buffer);
+            let type = buffer.slice(index, index += 1).readUInt8();
             if (type == PackageType.data) {
-                var request_id = buffer.slice(index, index += 4).readUInt32BE();
-                var path_length = buffer.slice(index, index += 4).readUInt32BE();
-                var path = buffer.slice(index, index += path_length).toString();
-                var data_length = buffer.slice(index, index += 4).readUInt32BE();
-                var data_buffer = data_length ? buffer.slice(index, index += data_length) : Buffer.alloc(0);
+                let request_id = buffer.slice(index, index += 4).readUInt32BE();
+                let path_length = buffer.slice(index, index += 4).readUInt32BE();
+                let path = buffer.slice(index, index += path_length).toString();
+                let data_length = buffer.slice(index, index += 4).readUInt32BE();
+                let data_buffer = data_length ? buffer.slice(index, index += data_length) : Buffer.alloc(0);
                 // 判断是否 GZIP 压缩的数据
                 if (data_buffer.length > 2 && data_buffer.slice(0, 2).readUInt16BE() == 0x8b1f) {
                     data_buffer = zlib_1.default.gunzipSync(data_buffer);
                 }
-                var data = RequestProtos.decode(path, data_buffer);
-                return { type: type, request_id: request_id, path: path, data: data };
+                let data = RequestProtos.decode(path, data_buffer);
+                return { type, request_id, path, data };
             }
             else if (type == PackageType.heartbeat) {
-                var data = buffer.slice(index, index += 8).readUInt64BE();
-                return { type: type, data: data };
+                let data = buffer.slice(index, index += 8).readUInt64BE();
+                return { type, data };
             }
             else if (type == PackageType.shakehands) {
-                var id_length = buffer.slice(index, index += 4).readUInt32BE();
-                var id = id_length ? buffer.slice(index, index += id_length).toString() : "";
-                var ack = buffer.slice(index, index += 1).readUInt8();
-                return { type: type, id: id, ack: ack };
+                let id_length = buffer.slice(index, index += 4).readUInt32BE();
+                let id = id_length ? buffer.slice(index, index += id_length).toString() : "";
+                let ack = buffer.slice(index, index += 1).readUInt8();
+                return { type, id, ack };
             }
         }
         ;
@@ -476,13 +460,11 @@ exports.StatusCode = {
     4103: [4103, "server error"],
     200: [200, "ok"],
 };
-var CodeError = /** @class */ (function (_super) {
-    __extends(CodeError, _super);
-    function CodeError(message) {
-        return _super.call(this, message) || this;
+class CodeError extends Error {
+    constructor(message) {
+        super(message);
     }
-    return CodeError;
-}(Error));
+}
 /**
  * 扩展状态码
  * @param code

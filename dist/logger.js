@@ -10,17 +10,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var debug_1 = __importDefault(require("debug"));
+const debug_1 = __importDefault(require("debug"));
 function date_format() {
     var time = new Date();
-    return time.getFullYear() + "-" + (time.getMonth() + 1) + "-" + time.getDate() + " " + time.getHours() + ":" + time.getMinutes() + ":" + time.getSeconds() + " " + time.getMilliseconds();
+    return `${time.getFullYear()}-${time.getMonth() + 1}-${time.getDate()} ${time.getHours()}:${time.getMinutes()}:${time.getSeconds()} ${time.getMilliseconds()}`;
 }
 function default_1(name) {
-    return function (n) {
-        var args = [];
-        for (var _i = 1; _i < arguments.length; _i++) {
-            args[_i - 1] = arguments[_i];
-        }
+    return function (n, ...args) {
         if (debug_1.default.prototype.logger instanceof Function) {
             return debug_1.default.prototype.logger(n, JSON.stringify(args));
         }
