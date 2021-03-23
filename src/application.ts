@@ -2,8 +2,8 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description: 程序主类，
- * @LastEditTime: 2021-01-22 16:55:25 +0800
- * @FilePath: \ssocket\src\application.ts
+ * @LastEditTime: 2021-03-23 17:05:19 +0800
+ * @FilePath: /ssocket/src/application.ts
  */
 
 import { IncomingMessage } from "http";
@@ -72,7 +72,7 @@ export class Application extends EventEmitter {
             client.on("message", (ctx: Code.PackageData) => {
                 ctx.socket_id = client.getid();
                 ctx.socket = client;
-                ctx.application = this;
+                ctx.app = ctx.application = this;
                 this.__router.routes(ctx).then((res: any | Array<any>) => {
                     delete ctx.socket_id;
                     delete ctx.socket;

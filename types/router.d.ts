@@ -1,9 +1,10 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
+import { PackageData } from "./code";
 /**中间件 */
-export declare type Middleware = (ctx: any, next: Function | Middleware) => any;
+export declare type Middleware = (ctx: PackageData, next: Function | Middleware) => any;
 /**异常中间件 */
-export declare type MiddlewareError = (ctx: any, error: Error) => any;
+export declare type MiddlewareError = (ctx: PackageData, error: Error) => any;
 /**
  * 路由节点
  */
@@ -40,5 +41,5 @@ export declare class Router extends EventEmitter {
     /**
      * 获取路由调用方法
      */
-    get routes(): (ctx: any, next?: any) => Promise<any>;
+    get routes(): (ctx: PackageData, next?: any) => Promise<any>;
 }

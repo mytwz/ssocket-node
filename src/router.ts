@@ -1,12 +1,13 @@
 import { pathToRegexp, Key } from 'path-to-regexp';
 import { EventEmitter } from 'events';
 import debug from "./logger";
+import { PackageData } from "./code"
 
 /**中间件 */
-export type Middleware = (ctx: any, next: Function | Middleware) => any
+export type Middleware = (ctx: PackageData, next: Function | Middleware) => any
 
 /**异常中间件 */
-export type MiddlewareError = (ctx: any, error: Error) => any;
+export type MiddlewareError = (ctx: PackageData, error: Error) => any;
 
 interface ParamNames extends Key {
     name: string | number;
@@ -227,7 +228,7 @@ export class Router extends EventEmitter {
      */
     public get routes() {
         var router = this;
-        var dispatch = function dispatch(ctx: any, next?: any): Promise<any> {
+        var dispatch = function dispatch(ctx: PackageData, next?: any): Promise<any> {
             var layerChain = router.match(ctx.path).reduce(function (memo: Middleware[], layer) {
                 return memo.concat(layer.stack);
             }, []);
