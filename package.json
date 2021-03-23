@@ -1,6 +1,6 @@
 {
   "name": "ssocket",
-  "version": "1.0.44",
+  "version": "1.0.46",
   "description": "仿 Koa 中间件控制的 WebSocket 服务",
   "main": "./dist/index.js",
   "typings": "./types/index.d.ts",
@@ -9,7 +9,9 @@
     "websocket",
     "koa",
     "socket-js",
-    "websocket-js"
+    "websocket-js",
+    "聊天",
+    "chat"
   ],
   "author": "summer.li",
   "license": "ISC",
