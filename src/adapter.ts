@@ -2,7 +2,7 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description: 
- * @LastEditTime: 2021-03-23 18:12:39 +0800
+ * @LastEditTime: 2021-03-24 17:41:53 +0800
  * @FilePath: /ssocket/src/adapter.ts
  */
 
@@ -21,7 +21,7 @@ export interface Options extends RedisOptions {
 
 const logger = debug("adapter")
 
-const REDIS_ROOM_PREFIX = "ssocket:rooms:room"
+const REDIS_ROOM_PREFIX = "ssocket:rooms:ROOM"
 
 /**系统事件 */
 const SYNC_EVENTS: string[] = [
@@ -129,7 +129,7 @@ export class Adapter {
     public async join(id: string, room: string){
         logger("join", id, room)
         if(this.data_redis) {
-            await this.data_redis.sadd(REDIS_ROOM_PREFIX.replace(/room/, room), id)
+            await this.data_redis.sadd(REDIS_ROOM_PREFIX.replace(/ROOM/, room), id)
         }
         else {
             (this.rooms[room] = this.rooms[room] || new Set()).add(id)
@@ -144,7 +144,7 @@ export class Adapter {
     public async leave(id:string, room: string){
         logger("leave", id, room)
         if(this.data_redis) {
-            await this.data_redis.srem(REDIS_ROOM_PREFIX.replace(/room/, room), 0, id)
+            await this.data_redis.srem(REDIS_ROOM_PREFIX.replace(/ROOM/, room), 0, id)
         }
         else {
             (this.rooms[room] = this.rooms[room] || new Set()).delete(id)
@@ -159,12 +159,12 @@ export class Adapter {
             let cursor = 0;
             let list:string[] = [];
             do {
-              let res = await this.data_redis.scan(cursor, "match", REDIS_ROOM_PREFIX.replace(/room/, "*"), "count", 2000);
+              let res = await this.data_redis.scan(cursor, "match", REDIS_ROOM_PREFIX.replace(/ROOM/, "*"), "count", 2000);
               cursor = +res[0];
               list = list.concat(res[1]);
             } while (cursor != 0);
 
-            return list.map(key => key.replace(REDIS_ROOM_PREFIX.replace(/room/, ""), ""));
+            return list.map(key => key.replace(REDIS_ROOM_PREFIX.replace(/ROOM/, ""), ""));
         }
         else {
             return Object.keys(this.rooms)
@@ -176,7 +176,7 @@ export class Adapter {
      */
     public async getClientidByroom(room: string): Promise<string[]>{
         if(this.data_redis) {
-            return await this.data_redis.smembers(REDIS_ROOM_PREFIX.replace(/room/, room))
+            return await this.data_redis.smembers(REDIS_ROOM_PREFIX.replace(/ROOM/, room))
         }
         else {
             let ids: string[] = [];
@@ -214,7 +214,7 @@ export class Adapter {
      */
     public async hasRoom(id: string, room: string): Promise<boolean> {
         if(this.data_redis){
-            return Boolean(await this.data_redis.sismember(REDIS_ROOM_PREFIX.replace(/room/, room), id));
+            return Boolean(await this.data_redis.sismember(REDIS_ROOM_PREFIX.replace(/ROOM/, room), id));
         }
         else {
             return (this.rooms[room] || new Set()).has(id)
@@ -240,7 +240,7 @@ export class Adapter {
      */
     public async getRoomsize(room: string): Promise<number>{
         if(this.data_redis) {
-            return await this.data_redis.scard(REDIS_ROOM_PREFIX.replace(/room/, room))
+            return await this.data_redis.scard(REDIS_ROOM_PREFIX.replace(/ROOM/, room))
         }
         else {
             return this.rooms[room] ? this.rooms[room].size : 0;

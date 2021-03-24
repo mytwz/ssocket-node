@@ -3,7 +3,7 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description:
- * @LastEditTime: 2021-03-23 18:12:39 +0800
+ * @LastEditTime: 2021-03-24 17:41:53 +0800
  * @FilePath: /ssocket/src/adapter.ts
  */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
@@ -25,7 +25,7 @@ const ioredis_1 = __importDefault(require("ioredis"));
 const events_1 = require("events");
 const logger_1 = __importDefault(require("./logger"));
 const logger = logger_1.default("adapter");
-const REDIS_ROOM_PREFIX = "ssocket:rooms:room";
+const REDIS_ROOM_PREFIX = "ssocket:rooms:ROOM";
 /**系统事件 */
 const SYNC_EVENTS = [
     "emit_socket_message",
@@ -124,7 +124,7 @@ class Adapter {
         return __awaiter(this, void 0, void 0, function* () {
             logger("join", id, room);
             if (this.data_redis) {
-                yield this.data_redis.sadd(REDIS_ROOM_PREFIX.replace(/room/, room), id);
+                yield this.data_redis.sadd(REDIS_ROOM_PREFIX.replace(/ROOM/, room), id);
             }
             else {
                 (this.rooms[room] = this.rooms[room] || new Set()).add(id);
@@ -140,7 +140,7 @@ class Adapter {
         return __awaiter(this, void 0, void 0, function* () {
             logger("leave", id, room);
             if (this.data_redis) {
-                yield this.data_redis.srem(REDIS_ROOM_PREFIX.replace(/room/, room), 0, id);
+                yield this.data_redis.srem(REDIS_ROOM_PREFIX.replace(/ROOM/, room), 0, id);
             }
             else {
                 (this.rooms[room] = this.rooms[room] || new Set()).delete(id);
@@ -156,11 +156,11 @@ class Adapter {
                 let cursor = 0;
                 let list = [];
                 do {
-                    let res = yield this.data_redis.scan(cursor, "match", REDIS_ROOM_PREFIX.replace(/room/, "*"), "count", 2000);
+                    let res = yield this.data_redis.scan(cursor, "match", REDIS_ROOM_PREFIX.replace(/ROOM/, "*"), "count", 2000);
                     cursor = +res[0];
                     list = list.concat(res[1]);
                 } while (cursor != 0);
-                return list.map(key => key.replace(REDIS_ROOM_PREFIX.replace(/room/, ""), ""));
+                return list.map(key => key.replace(REDIS_ROOM_PREFIX.replace(/ROOM/, ""), ""));
             }
             else {
                 return Object.keys(this.rooms);
@@ -174,7 +174,7 @@ class Adapter {
     getClientidByroom(room) {
         return __awaiter(this, void 0, void 0, function* () {
             if (this.data_redis) {
-                return yield this.data_redis.smembers(REDIS_ROOM_PREFIX.replace(/room/, room));
+                return yield this.data_redis.smembers(REDIS_ROOM_PREFIX.replace(/ROOM/, room));
             }
             else {
                 let ids = [];
@@ -216,7 +216,7 @@ class Adapter {
     hasRoom(id, room) {
         return __awaiter(this, void 0, void 0, function* () {
             if (this.data_redis) {
-                return Boolean(yield this.data_redis.sismember(REDIS_ROOM_PREFIX.replace(/room/, room), id));
+                return Boolean(yield this.data_redis.sismember(REDIS_ROOM_PREFIX.replace(/ROOM/, room), id));
             }
             else {
                 return (this.rooms[room] || new Set()).has(id);
@@ -244,7 +244,7 @@ class Adapter {
     getRoomsize(room) {
         return __awaiter(this, void 0, void 0, function* () {
             if (this.data_redis) {
-                return yield this.data_redis.scard(REDIS_ROOM_PREFIX.replace(/room/, room));
+                return yield this.data_redis.scard(REDIS_ROOM_PREFIX.replace(/ROOM/, room));
             }
             else {
                 return this.rooms[room] ? this.rooms[room].size : 0;
