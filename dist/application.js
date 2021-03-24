@@ -3,7 +3,7 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description: 程序主类，
- * @LastEditTime: 2021-03-23 17:05:19 +0800
+ * @LastEditTime: 2021-03-24 09:58:32 +0800
  * @FilePath: /ssocket/src/application.ts
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -80,11 +80,11 @@ class Application extends events_1.EventEmitter {
             client.on("message", (ctx) => {
                 ctx.socket_id = client.getid();
                 ctx.socket = client;
-                ctx.app = ctx.application = this;
+                ctx.app = this;
                 this.__router.routes(ctx).then((res) => {
                     delete ctx.socket_id;
                     delete ctx.socket;
-                    delete ctx.application;
+                    delete ctx.app;
                     logger("routes", { ctx, res });
                     if (ctx.request_id) {
                         ctx.status = code_1.default[200][0];
@@ -102,7 +102,7 @@ class Application extends events_1.EventEmitter {
                 }).catch(err => {
                     delete ctx.socket_id;
                     delete ctx.socket;
-                    delete ctx.application;
+                    delete ctx.app;
                     client.response(ctx.path, code_1.default[4103][0], code_1.default[4103][1], 0, undefined);
                     client.emit("route-error", ctx, err);
                     this.emit("route-error", ctx, err);

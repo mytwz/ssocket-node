@@ -3,8 +3,8 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description:
- * @LastEditTime: 2021-01-22 15:13:35 +0800
- * @FilePath: \ssocket\src\adapter.ts
+ * @LastEditTime: 2021-03-23 18:12:39 +0800
+ * @FilePath: /ssocket/src/adapter.ts
  */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }

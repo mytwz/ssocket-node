@@ -340,6 +340,7 @@ export interface PackageData {
     data?: { [key: string]: any; } | number;
     socket?: SWebSocket;
     app?:Application;
+    socket_id?:string,
     [key: string]: any;
 }
 

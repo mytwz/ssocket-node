@@ -176,31 +176,31 @@ client.request("user/user/login"/*由上面路由对象会组成这个路由路�
 login.ONPath("/login", async function(ctx, next){
 
     ctx.socket // 在上下文中会注入 SWebSocket 对象
-    ctx.application // 在上下文中会注入 Application 对象，这个对象等于上面的 Ssocket
+    ctx.app // 在上下文中会注入 Application 对象，这个对象等于上面的 Ssocket
     // 加入房间
-    ctx.application.join(ctx.socket_id, "roomid_123")
+    ctx.app.join(ctx.socket_id, "roomid_123")
     //离开房间
-    ctx.application.leave(ctx.socket_id, "roomid_123")
+    ctx.app.leave(ctx.socket_id, "roomid_123")
 
     // 获取所有的房间ID
-    let rooms = await ctx.application.getRoomall()
+    let rooms = await ctx.app.getRoomall()
     // 根据 客户端ID 获取所在的所有房间ID
-    let rooms = await ctx.application.getRoomidByid(ctx.socket_id)
+    let rooms = await ctx.app.getRoomidByid(ctx.socket_id)
     // 根据房间号获取所有的客户端ID
-    let clientids = await ctx.application.getClientidByroom("roomid_123")
+    let clientids = await ctx.app.getClientidByroom("roomid_123")
     // 获取所有的房间总数
-    let room_count = await ctx.application.getAllRoomcount()
+    let room_count = await ctx.app.getAllRoomcount()
     // 获取房间内人员数量
-    let client_count = await ctx.application.getRoomsize("roomid_123")
+    let client_count = await ctx.app.getRoomsize("roomid_123")
     // 判断客户端是否存在啊某个房间
-    let flog = await ctx.application.hasRoom(ctx.socket_id, "roomid_123")
+    let flog = await ctx.app.hasRoom(ctx.socket_id, "roomid_123")
 
     // 单独向某条连接发送消息
-    ctx.application.sendSocketMessage(ctx.socket_id, "user.user.login", { username:`登录成功，欢迎${ctx.data.usernmae}` })
+    ctx.app.sendSocketMessage(ctx.socket_id, "user.user.login", { username:`登录成功，欢迎${ctx.data.usernmae}` })
     // 单独向某个房间发送消息
-    ctx.application.sendRoomMessage("roomid_123", "user.user.login", { username:`登录成功，欢迎${ctx.data.usernmae}` })
+    ctx.app.sendRoomMessage("roomid_123", "user.user.login", { username:`登录成功，欢迎${ctx.data.usernmae}` })
     // 向所有连接发送广播消息
-    ctx.application.sendBroadcast("user.user.login", { username:`登录成功，欢迎${ctx.data.usernmae}` })
+    ctx.app.sendBroadcast("user.user.login", { username:`登录成功，欢迎${ctx.data.usernmae}` })
 
     return {
         username: `登录成功，欢迎${ctx.data.usernmae}`
