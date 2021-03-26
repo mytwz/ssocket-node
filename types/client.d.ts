@@ -2,6 +2,7 @@
 import WebSocket from "ws";
 import { EventEmitter } from 'events';
 import * as Code from "./code";
+import { IncomingMessage } from "http";
 export interface Options {
     ping_timeout: number;
 }
@@ -12,10 +13,13 @@ export declare class SWebSocket extends EventEmitter {
     private opts;
     private ping_timeout_id;
     private status;
+    browser: string;
+    device: string;
+    os: string;
     getid(): string;
     getSocket(): WebSocket;
     getStatus(): Code.SocketStatus;
-    constructor(socket: WebSocket, opts?: Options);
+    constructor(socket: WebSocket, req: IncomingMessage);
     private onclose;
     private message;
     private setPingtimeout;

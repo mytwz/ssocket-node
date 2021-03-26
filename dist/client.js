@@ -32,20 +32,38 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SWebSocket = void 0;
+/*
+ * @Author: Summer
+ * @LastEditors: Summer
+ * @Description:
+ * @Date: 2021-03-25 12:14:10 +0800
+ * @LastEditTime: 2021-03-26 11:18:31 +0800
+ * @FilePath: /ssocket/src/client.ts
+ */
 const ws_1 = __importDefault(require("ws"));
 const utils = __importStar(require("./utils"));
 const events_1 = require("events");
 const code_1 = __importStar(require("./code")), Code = code_1;
 const logger_1 = __importDefault(require("./logger"));
+const ua_parser_js_1 = __importDefault(require("ua-parser-js"));
 const logger = logger_1.default("swebsocket");
+console.log(".....................................................");
 class SWebSocket extends events_1.EventEmitter {
-    constructor(socket, opts) {
+    constructor(socket, req) {
+        var _a;
         super();
         this.socket = socket;
         this.status = Code.SocketStatus.OPEN;
-        this.opts = Object.assign({
-            ping_timeout: 1000 * 60
-        }, opts);
+        this.browser = null;
+        this.device = null;
+        this.os = null;
+        let { browser, os, device, ua } = new ua_parser_js_1.default(req.headers["user-agent"]).getResult();
+        this.browser = browser.name || "unknown";
+        this.device = device.vendor || device.model || "unknown";
+        this.os = os.name || "unknown";
+        if (!os.name && !device.vendor && !browser.name)
+            this.browser = ((_a = String(ua).match(/\w+/)) === null || _a === void 0 ? void 0 : _a.pop()) || "unknown";
+        this.opts = { ping_timeout: 1000 * 60 };
         this.ping_timeout_id = 0;
         this.id = utils.id24();
         this.socket.on("close", (code, reason) => this.onclose(code, reason));
@@ -53,7 +71,7 @@ class SWebSocket extends events_1.EventEmitter {
         this.socket.on("upgrade", request => this.emit("upgrade", request));
         this.socket.on("unexpected-response", (request, response) => this.emit("unexpected-response", request, response));
         this.socket.on("message", this.message.bind(this));
-        logger(this.id + ":constructor", { opts });
+        logger(this.id + ":constructor", this.opts);
         this.setPingtimeout();
     }
     getid() { return this.id; }

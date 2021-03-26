@@ -3,8 +3,8 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description:
- * @LastEditTime: 2021-01-22 14:50:46 +0800
- * @FilePath: \ssocket\src\logger.ts
+ * @LastEditTime: 2021-03-25 16:12:46 +0800
+ * @FilePath: /ssocket/src/logger.ts
  */
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
@@ -26,7 +26,7 @@ function default_1(name) {
         else if (debug_1.default.prototype.logger) {
             debug_1.default.enable("*");
         }
-        debug_1.default("ssocket:" + name).extend(n)("[%s]: %s", date_format(), JSON.stringify(args));
+        debug_1.default("ssocket:" + name).extend(n)("[%s]: %s", date_format(), name, JSON.stringify(args));
     };
 }
 exports.default = default_1;

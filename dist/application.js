@@ -3,7 +3,7 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description: 程序主类，
- * @LastEditTime: 2021-03-24 09:58:32 +0800
+ * @LastEditTime: 2021-03-25 16:12:22 +0800
  * @FilePath: /ssocket/src/application.ts
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -72,7 +72,7 @@ class Application extends events_1.EventEmitter {
         }
         this.__server.on("connection", (socket, req) => {
             logger("connection", { url: req.url, rawHeaders: req.rawHeaders });
-            let client = new client_1.SWebSocket(socket);
+            let client = new client_1.SWebSocket(socket, req);
             client.on("close", (id, code, reason) => {
                 this.__adapter.delete(id);
                 this.emit("close", id, code, reason);

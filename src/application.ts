@@ -2,7 +2,7 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description: 程序主类，
- * @LastEditTime: 2021-03-24 09:58:32 +0800
+ * @LastEditTime: 2021-03-25 16:12:22 +0800
  * @FilePath: /ssocket/src/application.ts
  */
 
@@ -23,6 +23,8 @@ const logger = debug("application")
 type loggerFun = (name: string, message: string) => void
 
 export interface SOptions extends ServerOptions {
+    /**服务器名称：多服务不可重复 */
+    serverName:string,
     redis?: Options,
     protos?: {
         request?: {[key: string]: any};
@@ -64,7 +66,7 @@ export class Application extends EventEmitter {
 
         this.__server.on("connection", (socket: WebSocket, req: IncomingMessage) => {
             logger("connection", { url: req.url, rawHeaders: req.rawHeaders })
-            let client: SWebSocket = new SWebSocket(socket)
+            let client: SWebSocket = new SWebSocket(socket, req)
             client.on("close", (id: string, code: number, reason: string) => {
                 this.__adapter.delete(id);
                 this.emit("close", id, code, reason);

@@ -1,14 +1,26 @@
+/*
+ * @Author: Summer
+ * @LastEditors: Summer
+ * @Description: 
+ * @Date: 2021-03-25 12:14:10 +0800
+ * @LastEditTime: 2021-03-26 11:18:31 +0800
+ * @FilePath: /ssocket/src/client.ts
+ */
 import WebSocket from "ws";
 import * as utils from "./utils"
 import { EventEmitter } from 'events';
 import CODE, * as Code from "./code"
 import debug from "./logger";
+import UAParser from "ua-parser-js"
+import { IncomingMessage } from "http";
 
 const logger = debug("swebsocket")
 
 export interface Options {
     ping_timeout: number;
 }
+
+console.log(".....................................................")
 
 export class SWebSocket extends EventEmitter {
 
@@ -17,15 +29,22 @@ export class SWebSocket extends EventEmitter {
     private opts: Options;
     private ping_timeout_id: NodeJS.Timeout;
     private status: Code.SocketStatus = Code.SocketStatus.OPEN;
+    public browser:string = <string><unknown>null;
+    public device:string = <string><unknown>null;
+    public os:string = <string><unknown>null;
     public getid(): string { return this.id; }
     public getSocket(): WebSocket { return this.socket; }
     public getStatus(): Code.SocketStatus { return this.status }
 
-    constructor(private socket: WebSocket, opts?: Options) {
+    constructor(private socket: WebSocket, req: IncomingMessage) {
         super()
-        this.opts = Object.assign({
-            ping_timeout: 1000 * 60
-        }, opts)
+        let { browser, os, device, ua } = new UAParser(req.headers["user-agent"]).getResult();
+        this.browser = browser.name || "unknown";
+        this.device = device.vendor || device.model || "unknown"
+        this.os = os.name || "unknown"
+        if(!os.name && !device.vendor && !browser.name) this.browser = String(ua).match(/\w+/)?.pop() || "unknown"
+
+        this.opts = {ping_timeout: 1000 * 60}
         this.ping_timeout_id = <NodeJS.Timeout><unknown>0;
         this.id = utils.id24();
         this.socket.on("close", (code: number, reason: string) => this.onclose(code, reason));
@@ -33,7 +52,7 @@ export class SWebSocket extends EventEmitter {
         this.socket.on("upgrade", request => this.emit("upgrade", request));
         this.socket.on("unexpected-response", (request, response) => this.emit("unexpected-response", request, response));
         this.socket.on("message", this.message.bind(this));
-        logger(this.id + ":constructor", {opts})
+        logger(this.id + ":constructor", this.opts)
         this.setPingtimeout();
     }
 

@@ -6,6 +6,8 @@ import { Adapter } from "./adapter";
 import { Router } from "./router";
 declare type loggerFun = (name: string, message: string) => void;
 export interface SOptions extends ServerOptions {
+    /**服务器名称：多服务不可重复 */
+    serverName: string;
     redis?: Options;
     protos?: {
         request?: {

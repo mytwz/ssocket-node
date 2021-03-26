@@ -3,7 +3,7 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description:
- * @LastEditTime: 2021-03-24 17:41:53 +0800
+ * @LastEditTime: 2021-03-26 15:15:37 +0800
  * @FilePath: /ssocket/src/adapter.ts
  */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
@@ -24,12 +24,60 @@ const code_1 = __importDefault(require("./code"));
 const ioredis_1 = __importDefault(require("ioredis"));
 const events_1 = require("events");
 const logger_1 = __importDefault(require("./logger"));
+const os_1 = __importDefault(require("os"));
+const HOST_NAME = os_1.default.hostname();
 const logger = logger_1.default("adapter");
-const REDIS_ROOM_PREFIX = "ssocket:rooms:ROOM";
+let REDIS_ROOM_PREFIX = "ssocket:SERVER_NAME:rooms:ROOM";
 /**系统事件 */
 const SYNC_EVENTS = [
     "emit_socket_message",
 ];
+ioredis_1.default.prototype.keys = function (pattern) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let cursor = 0;
+        let list = [];
+        do {
+            let res = yield this.scan(cursor, "match", pattern, "count", 2000);
+            cursor = +res[0];
+            list = list.concat(res[1]);
+        } while (cursor != 0);
+        return list;
+    });
+};
+/**Redis Key */
+const REDIS_SOCKET_SERVICE_KEY = "ssocket_service";
+/**获取主机名的正则 */
+const HOSTNAME_REGEXP = /(?<=:H)[^:]+/g;
+/**获取进程号的正则 */
+const PROCESS_REGEXP = /(?<=:P)[^:]+/g;
+/**获取渠道号的正则 */
+const CHANNEL_REGEXP = /(?<=:C)[^:]+/g;
+/**获取设备号的正则 */
+const EQUIPMENT_REGEXP = /(?<=:D)[^:]+/g;
+/**获取房间号的正则 */
+const ROOM_ID_REGEXP = /(?<=:R)[^:]+/g;
+/**获取用户 ID 的正则 */
+const UID_REGEXP = /(?<=:U)[^:]+/g;
+/**获取 Socket 连接 ID 的正则 */
+const SID_REGEXP = /(?<=:S)[^:]+/g;
+const X = "XXX";
+const U = /(?<=U)\*/;
+const R = /(?<=R)\*/;
+const D = /(?<=D)\*/;
+const C = /(?<=C)\*/;
+const S = /(?<=S)\*/;
+const P = /(?<=P)\*/;
+const H = /(?<=H)\*/;
+const HOST_PROCESS = `H${HOST_NAME}:P${process.pid}`;
+const ALL_KEY = `${REDIS_SOCKET_SERVICE_KEY}:H*:P*:C*:O*:D*:B*:R*:S*`;
+const HOST_KEY = `${REDIS_SOCKET_SERVICE_KEY}:H${X}:P*:C*:O*:D*:B*:R*:S*`;
+const PROCESS_KEY = `${REDIS_SOCKET_SERVICE_KEY}:H*:P${X}:C*:O*:D*:B*:R*:S*`;
+const SID_KEY = `${REDIS_SOCKET_SERVICE_KEY}:H*:P*:C*:O*:D*:B*:R*:S${X}`;
+const ROOM_ID_KEY = `${REDIS_SOCKET_SERVICE_KEY}:H*:P*:C*:O*:D*:B*:R${X}:S*`;
+const EQUIPMENT_KEY = `${REDIS_SOCKET_SERVICE_KEY}:H*:P*:C*:O*:D${X}:B*:R*:S*`;
+const CHANNEL_KEY = `${REDIS_SOCKET_SERVICE_KEY}:H*:P*:C${X}:O*:D*:B*:R*:S*`;
+const SYSTEM_ROOMID = "unknown";
+const SYSTEM_USERID = "unknown";
 class Adapter {
     constructor(opts) {
         this.opts = opts;
@@ -39,10 +87,11 @@ class Adapter {
         this.sub_redis = undefined;
         /**Redis  */
         this.pub_redis = undefined;
-        this.data_redis = undefined;
         /**事件触发器 */
         this.emitter = new events_1.EventEmitter();
-        this.rooms = {};
+        this.clientkeys = {};
+        this.tmpclientkeys = {};
+        this.data_redis = undefined;
         if (this.opts) {
             this.sub_redis = new ioredis_1.default(this.opts);
             ;
@@ -68,6 +117,165 @@ class Adapter {
             this.emitter.on("emit_socket_message", this.emit_socket_message.bind(this));
         }
         logger("constructor", { opts: this.opts });
+    }
+    /**
+     * @param channel
+     * @param os
+     * @param device
+     * @param browser
+     * @param roomid
+     * @param uid
+     * @param sid
+     */
+    addUserRelation(channel, os, device, browser, roomid, sid) {
+        return __awaiter(this, void 0, void 0, function* () {
+            let key = `${REDIS_SOCKET_SERVICE_KEY}:${HOST_PROCESS}:C${channel}:O${os}:D${device}:B${browser}:R${roomid}:S${sid}`;
+            if (this.data_redis) {
+                yield this.data_redis.set(key, sid, "px", 1000 * 60 * 60 * 24);
+            }
+            else
+                this.tmpclientkeys[this.clientkeys[key] = sid] = key;
+        });
+    }
+    /**
+     * 移除客户端关系
+     * @param {*} sid
+     */
+    removeUserRelation(sid) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.data_redis) {
+                let keys = yield this.data_redis.keys(SID_KEY.replace(X, sid));
+                for (let key of keys) {
+                    yield this.data_redis.del(key);
+                }
+            }
+            else {
+                delete this.clientkeys[this.tmpclientkeys[sid]];
+                delete this.tmpclientkeys[sid];
+            }
+        });
+    }
+    /**
+     * 获取 ID
+     * @param {*} keyPattern Redis Key
+     * @param {*} regExp 对应资源的正则
+     */
+    findIds(keyPattern, regExp) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const keys = this.data_redis ? yield this.data_redis.keys(keyPattern) : Object.keys(this.clientkeys).filter(key => new RegExp(keyPattern.replace(/\*/g, ".*")).test(key));
+            return this.matchIds(keys, regExp);
+        });
+    }
+    /**
+     * 在 Keys 中获取 ID列表
+     * @param {*} keys
+     * @param {*} keyPattern
+     * @param {*} regExp
+     */
+    findIdsByKeys(keys, keyPattern, id, regExp) {
+        const keyList = keys.filter(key => new RegExp(keyPattern.replace(X, id).replace(/\*/g, ".*")).test(key));
+        return this.matchIds(keyList, regExp);
+    }
+    /**
+     * 从 Key 中获取指定的 ID
+     * @param {*} key
+     * @param {*} regExp
+     */
+    matchId(key, regExp) {
+        var _a;
+        return ((_a = String(key).match(regExp)) === null || _a === void 0 ? void 0 : _a.pop()) + "";
+    }
+    /**
+     * 从 Key 中获取指定的 ID
+     * @param {*} keys
+     * @param {*} regExp
+     */
+    matchIds(keys, regExp) {
+        return [...new Set(keys.map(key => this.matchId(key, regExp)))];
+    }
+    /**
+     * 根据房间ID获取所有的 Sid
+     * @param {*} roomid
+     */
+    findSidsByRoomid(roomid) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield this.findIds(ROOM_ID_KEY.replace(X, roomid), SID_REGEXP);
+            return results || [];
+        });
+    }
+    /**
+     * 根据房间ID获取所有的 Uid
+     * @param {*} roomid
+     */
+    findUidsByRoomid(roomid) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield this.findIds(ROOM_ID_KEY.replace(X, roomid), UID_REGEXP);
+            return results || [];
+        });
+    }
+    /**
+     * 根据 SID 获取房间ID
+     * @param {*} uid
+     */
+    findRoomidsBySid(sid) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield this.findIds(SID_KEY.replace(X, sid), ROOM_ID_REGEXP);
+            return results || [];
+        });
+    }
+    /**
+     * 根据 UID 获取 SID
+     * @param {*} uid
+     */
+    findSidsByRoomidAndUid(roomid, uid) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield this.findIds(ALL_KEY.replace(/R\*/, roomid).replace(/U\*/, uid), SID_REGEXP);
+            return results || [];
+        });
+    }
+    /**
+     * 获取所有的 ROOMID
+     */
+    findAllRoomid() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield this.findIds(ALL_KEY, ROOM_ID_REGEXP);
+            return results || [];
+        });
+    }
+    /**
+     * 获取所有的 channel
+     */
+    findAllEquipment() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield this.findIds(ALL_KEY, EQUIPMENT_REGEXP);
+            return results || [];
+        });
+    }
+    /**获取所有的Sid */
+    findAllSids() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield this.findIds(ALL_KEY, SID_REGEXP);
+            return results || [];
+        });
+    }
+    /**
+     * 根据 channel 获取 ROOMID
+     * @param {*} channel
+     */
+    findRoomidsByEquipment(equipment) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield this.findIds(EQUIPMENT_KEY.replace(X, equipment), ROOM_ID_REGEXP);
+            return results || [];
+        });
+    }
+    /**
+     * 获取所有的 Keys
+     */
+    findAllKeys() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = this.data_redis ? yield this.data_redis.keys(ALL_KEY) : Object.keys(this.clientkeys);
+            return results || [];
+        });
     }
     /**
      * 通过 Redis 进行多服务器消息同步
@@ -99,6 +307,7 @@ class Adapter {
         return __awaiter(this, void 0, void 0, function* () {
             logger("set", socket.getid());
             this.clients.set(socket.getid(), socket);
+            this.addUserRelation("summer01", socket.os, socket.device, socket.browser, SYSTEM_ROOMID, socket.getid());
             return socket;
         });
     }
@@ -110,9 +319,7 @@ class Adapter {
         return __awaiter(this, void 0, void 0, function* () {
             logger("delete", id);
             this.clients.delete(id);
-            for (let room of yield this.getRoomidByid(id)) {
-                yield this.leave(id, room);
-            }
+            this.removeUserRelation(id);
         });
     }
     /**
@@ -123,12 +330,8 @@ class Adapter {
     join(id, room) {
         return __awaiter(this, void 0, void 0, function* () {
             logger("join", id, room);
-            if (this.data_redis) {
-                yield this.data_redis.sadd(REDIS_ROOM_PREFIX.replace(/ROOM/, room), id);
-            }
-            else {
-                (this.rooms[room] = this.rooms[room] || new Set()).add(id);
-            }
+            let socket = this.get(id);
+            this.addUserRelation("summer01", socket.os, socket.device, socket.browser, room, socket.getid());
         });
     }
     /**
@@ -140,10 +343,14 @@ class Adapter {
         return __awaiter(this, void 0, void 0, function* () {
             logger("leave", id, room);
             if (this.data_redis) {
-                yield this.data_redis.srem(REDIS_ROOM_PREFIX.replace(/ROOM/, room), 0, id);
+                let keys = yield this.data_redis.keys(ALL_KEY.replace(/R\*/, room).replace(/S\*/, id));
+                for (let key of keys) {
+                    yield this.data_redis.del(key);
+                }
             }
             else {
-                (this.rooms[room] = this.rooms[room] || new Set()).delete(id);
+                delete this.clientkeys[this.tmpclientkeys[id]];
+                delete this.tmpclientkeys[id];
             }
         });
     }
@@ -152,19 +359,7 @@ class Adapter {
      */
     getRoomall() {
         return __awaiter(this, void 0, void 0, function* () {
-            if (this.data_redis) {
-                let cursor = 0;
-                let list = [];
-                do {
-                    let res = yield this.data_redis.scan(cursor, "match", REDIS_ROOM_PREFIX.replace(/ROOM/, "*"), "count", 2000);
-                    cursor = +res[0];
-                    list = list.concat(res[1]);
-                } while (cursor != 0);
-                return list.map(key => key.replace(REDIS_ROOM_PREFIX.replace(/ROOM/, ""), ""));
-            }
-            else {
-                return Object.keys(this.rooms);
-            }
+            return yield this.findAllRoomid();
         });
     }
     /**
@@ -173,14 +368,7 @@ class Adapter {
      */
     getClientidByroom(room) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (this.data_redis) {
-                return yield this.data_redis.smembers(REDIS_ROOM_PREFIX.replace(/ROOM/, room));
-            }
-            else {
-                let ids = [];
-                (this.rooms[room] || new Set()).forEach(id => ids.push(id));
-                return ids;
-            }
+            return yield this.findSidsByRoomid(room);
         });
     }
     /**
@@ -189,23 +377,7 @@ class Adapter {
      */
     getRoomidByid(id) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (this.data_redis) {
-                let rooms = [];
-                for (let room of yield this.getRoomall()) {
-                    let flog = yield this.hasRoom(room, id);
-                    if (flog)
-                        rooms.push(room);
-                }
-                return rooms;
-            }
-            else {
-                let rooms = [];
-                for (let room in this.rooms) {
-                    if (this.rooms[room].has(id))
-                        rooms.push(room);
-                }
-                return rooms;
-            }
+            return yield this.findRoomidsBySid(id);
         });
     }
     /**
@@ -215,12 +387,8 @@ class Adapter {
      */
     hasRoom(id, room) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (this.data_redis) {
-                return Boolean(yield this.data_redis.sismember(REDIS_ROOM_PREFIX.replace(/ROOM/, room), id));
-            }
-            else {
-                return (this.rooms[room] || new Set()).has(id);
-            }
+            let sids = yield this.findSidsByRoomid(room);
+            return sids.includes(id);
         });
     }
     /**
@@ -228,13 +396,8 @@ class Adapter {
      */
     getAllRoomcount() {
         return __awaiter(this, void 0, void 0, function* () {
-            if (this.data_redis) {
-                let rooms = yield this.getRoomall();
-                return rooms.length;
-            }
-            else {
-                return Object.keys(this.rooms).length;
-            }
+            let rooms = yield this.findAllRoomid();
+            return rooms.length;
         });
     }
     /**
@@ -243,12 +406,8 @@ class Adapter {
      */
     getRoomsize(room) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (this.data_redis) {
-                return yield this.data_redis.scard(REDIS_ROOM_PREFIX.replace(/ROOM/, room));
-            }
-            else {
-                return this.rooms[room] ? this.rooms[room].size : 0;
-            }
+            let sids = yield this.findSidsByRoomid(room);
+            return sids.length;
         });
     }
     /**
@@ -275,8 +434,8 @@ class Adapter {
      */
     sendBroadcast(event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
         return __awaiter(this, void 0, void 0, function* () {
-            for (let room of yield this.getRoomall()) {
-                this.sendRoomMessage(room, event, data, status, msg);
+            for (let sid of yield this.findAllSids()) {
+                this.sendSocketMessage(sid, event, data, status, msg);
             }
         });
     }

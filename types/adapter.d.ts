@@ -12,11 +12,91 @@ export declare class Adapter {
     private sub_redis;
     /**Redis  */
     private pub_redis;
-    private data_redis;
     /**事件触发器 */
     private emitter;
-    private rooms;
+    private clientkeys;
+    private tmpclientkeys;
+    private data_redis;
     constructor(opts?: Options | undefined);
+    /**
+     * @param channel
+     * @param os
+     * @param device
+     * @param browser
+     * @param roomid
+     * @param uid
+     * @param sid
+     */
+    addUserRelation(channel: string, os: string, device: string, browser: string, roomid: string, sid: string): Promise<void>;
+    /**
+     * 移除客户端关系
+     * @param {*} sid
+     */
+    removeUserRelation(sid: string): Promise<void>;
+    /**
+     * 获取 ID
+     * @param {*} keyPattern Redis Key
+     * @param {*} regExp 对应资源的正则
+     */
+    private findIds;
+    /**
+     * 在 Keys 中获取 ID列表
+     * @param {*} keys
+     * @param {*} keyPattern
+     * @param {*} regExp
+     */
+    private findIdsByKeys;
+    /**
+     * 从 Key 中获取指定的 ID
+     * @param {*} key
+     * @param {*} regExp
+     */
+    private matchId;
+    /**
+     * 从 Key 中获取指定的 ID
+     * @param {*} keys
+     * @param {*} regExp
+     */
+    private matchIds;
+    /**
+     * 根据房间ID获取所有的 Sid
+     * @param {*} roomid
+     */
+    findSidsByRoomid(roomid: string): Promise<string[]>;
+    /**
+     * 根据房间ID获取所有的 Uid
+     * @param {*} roomid
+     */
+    findUidsByRoomid(roomid: string): Promise<string[]>;
+    /**
+     * 根据 SID 获取房间ID
+     * @param {*} uid
+     */
+    findRoomidsBySid(sid: string): Promise<string[]>;
+    /**
+     * 根据 UID 获取 SID
+     * @param {*} uid
+     */
+    findSidsByRoomidAndUid(roomid: string, uid: string): Promise<string[]>;
+    /**
+     * 获取所有的 ROOMID
+     */
+    findAllRoomid(): Promise<string[]>;
+    /**
+     * 获取所有的 channel
+     */
+    findAllEquipment(): Promise<string[]>;
+    /**获取所有的Sid */
+    findAllSids(): Promise<string[]>;
+    /**
+     * 根据 channel 获取 ROOMID
+     * @param {*} channel
+     */
+    findRoomidsByEquipment(equipment: string): Promise<string[]>;
+    /**
+     * 获取所有的 Keys
+     */
+    findAllKeys(): Promise<string[]>;
     /**
      * 通过 Redis 进行多服务器消息同步
      * @param message

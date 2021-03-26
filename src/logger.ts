@@ -2,8 +2,8 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description: 
- * @LastEditTime: 2021-01-22 14:50:46 +0800
- * @FilePath: \ssocket\src\logger.ts
+ * @LastEditTime: 2021-03-25 16:12:46 +0800
+ * @FilePath: /ssocket/src/logger.ts
  */
 
 
@@ -26,7 +26,7 @@ export default function (name: string) {
         else if(debug.prototype.logger){
             debug.enable("*")
         }
-        debug("ssocket:" + name).extend(n)("[%s]: %s", date_format(), JSON.stringify(args));
+        debug("ssocket:" + name).extend(n)("[%s]: %s", date_format(), name, JSON.stringify(args));
     }
 }
 
