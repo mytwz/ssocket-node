@@ -1,14 +1,13 @@
 /// <reference types="node" />
 import { Server, ServerOptions } from "ws";
 import { EventEmitter } from 'events';
-import { Options } from "./adapter";
-import { Adapter } from "./adapter";
+import { Options, Adapter } from "./adapter2";
 import { Router } from "./router";
 declare type loggerFun = (name: string, message: string) => void;
 export interface SOptions extends ServerOptions {
     /**服务器名称：多服务不可重复 */
     serverName: string;
-    redis?: Options;
+    adapter?: Options;
     protos?: {
         request?: {
             [key: string]: any;

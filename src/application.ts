@@ -2,15 +2,14 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description: 程序主类，
- * @LastEditTime: 2021-03-25 16:12:22 +0800
+ * @LastEditTime: 2021-04-27 10:34:15 +0800
  * @FilePath: /ssocket/src/application.ts
  */
 
 import { IncomingMessage } from "http";
 import { Server, ServerOptions } from "ws";
 import { EventEmitter } from 'events';
-import { Options } from "./adapter"
-import { Adapter } from "./adapter"
+import { Options, Adapter } from "./adapter2"
 import { SWebSocket } from "./client";
 import WebSocket from "ws";
 import { Router } from "./router";
@@ -25,11 +24,10 @@ type loggerFun = (name: string, message: string) => void
 export interface SOptions extends ServerOptions {
     /**服务器名称：多服务不可重复 */
     serverName:string,
-    redis?: Options,
+    adapter?: Options,
     protos?: {
         request?: {[key: string]: any};
         response?: {[key: string]: any};
-        
     };
     logger: boolean | string | loggerFun;
     [key: string]: any;
@@ -47,7 +45,7 @@ export class Application extends EventEmitter {
 
     constructor(private opts: SOptions) {
         super();
-        this.__adapter = new Adapter(this.opts.redis);
+        this.__adapter = new Adapter(this.opts.adapter || {});
         this.__server = new Server(this.opts, () => this.emit("start-up"));
         if(this.opts.protos){
             if(this.opts.protos.request) Code.parseRequestJson(this.opts.protos.request)

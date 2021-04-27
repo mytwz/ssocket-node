@@ -42,12 +42,15 @@ const server = new Ssocket({
     }, // 非必传
     perMessageDeflate: true, // 非必传
     maxPayload: 1024 * 1024 * 10, // 最大传输单位 10M // 非必传
-    redis:{ // 非必传, 用于服务集群做消息同步
-        prefix: 'im',
-        host: '127.0.0.1',
-        port: '6379',
-        expire: 60,
-    },
+    adapter:{// 非必传, 用于服务集群做消息同步
+        redis:{ 
+            prefix: 'im',
+            host: '127.0.0.1',
+            port: '6379',
+            expire: 60,
+        },
+        mqurl:"amqp://username:password@IP"
+    }
 })
 
 httpServer.listen(8080, function(){

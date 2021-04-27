@@ -2,7 +2,7 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description: 
- * @LastEditTime: 2021-03-26 17:12:20 +0800
+ * @LastEditTime: 2021-04-26 16:48:39 +0800
  * @FilePath: /ssocket/src/adapter.ts
  */
 
@@ -22,8 +22,6 @@ export interface Options extends RedisOptions {
 }
 
 const logger = debug("adapter")
-
-let REDIS_ROOM_PREFIX = "ssocket:SERVER_NAME:rooms:ROOM"
 
 /**系统事件 */
 const SYNC_EVENTS: string[] = [
