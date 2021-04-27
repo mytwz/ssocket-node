@@ -4,7 +4,7 @@
  * @LastEditors: Summer
  * @Description:
  * @Date: 2021-04-26 16:51:46 +0800
- * @LastEditTime: 2021-04-27 10:34:05 +0800
+ * @LastEditTime: 2021-04-27 11:33:38 +0800
  * @FilePath: /ssocket/src/adapter2.ts
  */
 var __importDefault = (this && this.__importDefault) || function (mod) {
@@ -274,6 +274,7 @@ class Adapter extends events_1.EventEmitter {
      */
     async getClientidByroom(room) {
         return new Promise(async (resolve, reject) => {
+            room = String(room);
             if (!this.cluster) {
                 return resolve([...this.rooms.get(room) || []]);
             }
@@ -303,6 +304,7 @@ class Adapter extends events_1.EventEmitter {
      */
     async getRoomidByid(id) {
         return new Promise(async (resolve, reject) => {
+            id = String(id);
             if (!this.cluster) {
                 return resolve([...this.client2rooms.get(id) || []]);
             }
@@ -332,6 +334,8 @@ class Adapter extends events_1.EventEmitter {
      * @param room
      */
     async hasRoom(id, room) {
+        id = String(id);
+        room = String(room);
         let rooms = await this.getRoomidByid(id);
         return rooms.includes(room);
     }
@@ -359,6 +363,7 @@ class Adapter extends events_1.EventEmitter {
      * @param msg
      */
     async sendRoomMessage(room, event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
+        room = String(room);
         if (!this.cluster) {
             for (let id of this.rooms.get(room) || []) {
                 this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
@@ -390,6 +395,7 @@ class Adapter extends events_1.EventEmitter {
      * @param {*} data
      */
     async sendSocketMessage(id, event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
+        id = String(id);
         if (!this.cluster) {
             this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
             return;
