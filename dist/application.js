@@ -25,6 +25,15 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -119,57 +128,73 @@ class Application extends events_1.EventEmitter {
      * @param id
      * @param room
      */
-    async join(id, room) {
-        await this.adapter.join(id, room);
+    join(id, room) {
+        return __awaiter(this, void 0, void 0, function* () {
+            yield this.adapter.join(id, room);
+        });
     }
     /**
      * 离开房间
      * @param id
      * @param room
      */
-    async leave(id, room) {
-        await this.adapter.leave(id, room);
+    leave(id, room) {
+        return __awaiter(this, void 0, void 0, function* () {
+            yield this.adapter.leave(id, room);
+        });
     }
     /**
      * 获取所有的房间号
      */
-    async getRoomall() {
-        return await this.adapter.getRoomall();
+    getRoomall() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield this.adapter.getRoomall();
+        });
     }
     /**
      * 根据房间号获取所有的客户端ID
      * @param room
      */
-    async getClientidByroom(room) {
-        return await this.adapter.getClientidByroom(room);
+    getClientidByroom(room) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield this.adapter.getClientidByroom(room);
+        });
     }
     /**
      * 根据 客户端ID 获取所在的所有房间ID
      * @param id
      */
-    async getRoomidByid(id) {
-        return await this.adapter.getRoomidByid(id);
+    getRoomidByid(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield this.adapter.getRoomidByid(id);
+        });
     }
     /**
      * 获取所有的房间总数
      */
-    async getAllRoomcount() {
-        return await this.adapter.getAllRoomcount();
+    getAllRoomcount() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield this.adapter.getAllRoomcount();
+        });
     }
     /**
      * 获取房间内人员数量
      * @param room
      */
-    async getRoomsize(room) {
-        return await this.adapter.getRoomsize(room);
+    getRoomsize(room) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield this.adapter.getRoomsize(room);
+        });
     }
     /**
      * 判断客户端是否存在啊某个房间
      * @param id
      * @param room
      */
-    async hasRoom(id, room) {
-        return await this.adapter.hasRoom(id, room);
+    hasRoom(id, room) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield this.adapter.hasRoom(id, room);
+        });
     }
     /**
      * 发送多服同步消息
@@ -177,8 +202,10 @@ class Application extends events_1.EventEmitter {
      * @param event
      * @param data
      */
-    async sendSocketMessage(id, event, data) {
-        await this.adapter.sendSocketMessage(id, event, data);
+    sendSocketMessage(id, event, data) {
+        return __awaiter(this, void 0, void 0, function* () {
+            yield this.adapter.sendSocketMessage(id, event, data);
+        });
     }
     /**
      * 发送房间消息
@@ -188,8 +215,10 @@ class Application extends events_1.EventEmitter {
      * @param status
      * @param msg
      */
-    async sendRoomMessage(room, event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
-        await this.adapter.sendRoomMessage(room, event, data, status, msg);
+    sendRoomMessage(room, event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
+        return __awaiter(this, void 0, void 0, function* () {
+            yield this.adapter.sendRoomMessage(room, event, data, status, msg);
+        });
     }
     /**
      * 发送广播消息
@@ -198,8 +227,10 @@ class Application extends events_1.EventEmitter {
      * @param status
      * @param msg
      */
-    async sendBroadcast(event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
-        await this.adapter.sendBroadcast(event, data, status, msg);
+    sendBroadcast(event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
+        return __awaiter(this, void 0, void 0, function* () {
+            yield this.adapter.sendBroadcast(event, data, status, msg);
+        });
     }
 }
 exports.Application = Application;

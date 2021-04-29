@@ -6,6 +6,15 @@
  * @LastEditTime: 2021-04-26 16:48:39 +0800
  * @FilePath: /ssocket/src/adapter.ts
  */
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -22,15 +31,17 @@ const logger = logger_1.default("adapter");
 const SYNC_EVENTS = [
     "emit_socket_message",
 ];
-ioredis_1.default.prototype.keys = async function (pattern) {
-    let cursor = 0;
-    let list = [];
-    do {
-        let res = await this.scan(cursor, "match", pattern, "count", 2000);
-        cursor = +res[0];
-        list = list.concat(res[1]);
-    } while (cursor != 0);
-    return list;
+ioredis_1.default.prototype.keys = function (pattern) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let cursor = 0;
+        let list = [];
+        do {
+            let res = yield this.scan(cursor, "match", pattern, "count", 2000);
+            cursor = +res[0];
+            list = list.concat(res[1]);
+        } while (cursor != 0);
+        return list;
+    });
 };
 /**Redis Key */
 const REDIS_SOCKET_SERVICE_KEY = "ssocket_service";
@@ -115,38 +126,44 @@ class Adapter {
      * @param uid
      * @param sid
      */
-    async addUserRelation(channel, os, device, browser, roomid, sid) {
-        let key = `${REDIS_SOCKET_SERVICE_KEY}:${HOST_PROCESS}:C${channel}:O${os}:D${device}:B${browser}:R${roomid}:S${sid}`;
-        if (this.data_redis) {
-            await this.data_redis.set(key, sid, "px", 1000 * 60 * 60 * 24);
-        }
-        else
-            this.tmpclientkeys[this.clientkeys[key] = sid] = key;
+    addUserRelation(channel, os, device, browser, roomid, sid) {
+        return __awaiter(this, void 0, void 0, function* () {
+            let key = `${REDIS_SOCKET_SERVICE_KEY}:${HOST_PROCESS}:C${channel}:O${os}:D${device}:B${browser}:R${roomid}:S${sid}`;
+            if (this.data_redis) {
+                yield this.data_redis.set(key, sid, "px", 1000 * 60 * 60 * 24);
+            }
+            else
+                this.tmpclientkeys[this.clientkeys[key] = sid] = key;
+        });
     }
     /**
      * 移除客户端关系
      * @param {*} sid
      */
-    async removeUserRelation(sid) {
-        if (this.data_redis) {
-            let keys = await this.data_redis.keys(SID_KEY.replace(X, sid));
-            for (let key of keys) {
-                await this.data_redis.del(key);
+    removeUserRelation(sid) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.data_redis) {
+                let keys = yield this.data_redis.keys(SID_KEY.replace(X, sid));
+                for (let key of keys) {
+                    yield this.data_redis.del(key);
+                }
             }
-        }
-        else {
-            delete this.clientkeys[this.tmpclientkeys[sid]];
-            delete this.tmpclientkeys[sid];
-        }
+            else {
+                delete this.clientkeys[this.tmpclientkeys[sid]];
+                delete this.tmpclientkeys[sid];
+            }
+        });
     }
     /**
      * 获取 ID
      * @param {*} keyPattern Redis Key
      * @param {*} regExp 对应资源的正则
      */
-    async findIds(keyPattern, regExp) {
-        const keys = this.data_redis ? await this.data_redis.keys(keyPattern) : Object.keys(this.clientkeys).filter(key => new RegExp(keyPattern.replace(/\*/g, ".*")).test(key));
-        return this.matchIds(keys, regExp);
+    findIds(keyPattern, regExp) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const keys = this.data_redis ? yield this.data_redis.keys(keyPattern) : Object.keys(this.clientkeys).filter(key => new RegExp(keyPattern.replace(/\*/g, ".*")).test(key));
+            return this.matchIds(keys, regExp);
+        });
     }
     /**
      * 在 Keys 中获取 ID列表
@@ -179,67 +196,85 @@ class Adapter {
      * 根据房间ID获取所有的 Sid
      * @param {*} roomid
      */
-    async findSidsByRoomid(roomid) {
-        const results = await this.findIds(ROOM_ID_KEY.replace(X, roomid), SID_REGEXP);
-        return results || [];
+    findSidsByRoomid(roomid) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield this.findIds(ROOM_ID_KEY.replace(X, roomid), SID_REGEXP);
+            return results || [];
+        });
     }
     /**
      * 根据房间ID获取所有的 Uid
      * @param {*} roomid
      */
-    async findUidsByRoomid(roomid) {
-        const results = await this.findIds(ROOM_ID_KEY.replace(X, roomid), UID_REGEXP);
-        return results || [];
+    findUidsByRoomid(roomid) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield this.findIds(ROOM_ID_KEY.replace(X, roomid), UID_REGEXP);
+            return results || [];
+        });
     }
     /**
      * 根据 SID 获取房间ID
      * @param {*} uid
      */
-    async findRoomidsBySid(sid) {
-        const results = await this.findIds(SID_KEY.replace(X, sid), ROOM_ID_REGEXP);
-        return (results || []).filter(id => id != SYSTEM_ROOMID);
+    findRoomidsBySid(sid) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield this.findIds(SID_KEY.replace(X, sid), ROOM_ID_REGEXP);
+            return (results || []).filter(id => id != SYSTEM_ROOMID);
+        });
     }
     /**
      * 根据 UID 获取 SID
      * @param {*} uid
      */
-    async findSidsByRoomidAndUid(roomid, uid) {
-        const results = await this.findIds(ALL_KEY.replace(/R\*/, roomid).replace(/U\*/, uid), SID_REGEXP);
-        return results || [];
+    findSidsByRoomidAndUid(roomid, uid) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield this.findIds(ALL_KEY.replace(/R\*/, roomid).replace(/U\*/, uid), SID_REGEXP);
+            return results || [];
+        });
     }
     /**
      * 获取所有的 ROOMID
      */
-    async findAllRoomid() {
-        const results = await this.findIds(ALL_KEY, ROOM_ID_REGEXP);
-        return (results || []).filter(id => id != SYSTEM_ROOMID);
+    findAllRoomid() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield this.findIds(ALL_KEY, ROOM_ID_REGEXP);
+            return (results || []).filter(id => id != SYSTEM_ROOMID);
+        });
     }
     /**
      * 获取所有的 channel
      */
-    async findAllEquipment() {
-        const results = await this.findIds(ALL_KEY, EQUIPMENT_REGEXP);
-        return results || [];
+    findAllEquipment() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield this.findIds(ALL_KEY, EQUIPMENT_REGEXP);
+            return results || [];
+        });
     }
     /**获取所有的Sid */
-    async findAllSids() {
-        const results = await this.findIds(ALL_KEY, SID_REGEXP);
-        return results || [];
+    findAllSids() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield this.findIds(ALL_KEY, SID_REGEXP);
+            return results || [];
+        });
     }
     /**
      * 根据 channel 获取 ROOMID
      * @param {*} channel
      */
-    async findRoomidsByEquipment(equipment) {
-        const results = await this.findIds(EQUIPMENT_KEY.replace(X, equipment), ROOM_ID_REGEXP);
-        return results || [];
+    findRoomidsByEquipment(equipment) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield this.findIds(EQUIPMENT_KEY.replace(X, equipment), ROOM_ID_REGEXP);
+            return results || [];
+        });
     }
     /**
      * 获取所有的 Keys
      */
-    async findAllKeys() {
-        const results = this.data_redis ? await this.data_redis.keys(ALL_KEY) : Object.keys(this.clientkeys);
-        return results || [];
+    findAllKeys() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = this.data_redis ? yield this.data_redis.keys(ALL_KEY) : Object.keys(this.clientkeys);
+            return results || [];
+        });
     }
     /**
      * 通过 Redis 进行多服务器消息同步
@@ -267,92 +302,112 @@ class Adapter {
      * @param {*} id
      * @param {*} socket
      */
-    async set(socket) {
-        logger("set", socket.getid());
-        this.clients.set(socket.getid(), socket);
-        this.addUserRelation("summer01", socket.os, socket.device, socket.browser, SYSTEM_ROOMID, socket.getid());
-        return socket;
+    set(socket) {
+        return __awaiter(this, void 0, void 0, function* () {
+            logger("set", socket.getid());
+            this.clients.set(socket.getid(), socket);
+            this.addUserRelation("summer01", socket.os, socket.device, socket.browser, SYSTEM_ROOMID, socket.getid());
+            return socket;
+        });
     }
     /**
      * 删除一个 Socket 连接
      * @param {*} id
      */
-    async delete(id) {
-        logger("delete", id);
-        this.clients.delete(id);
-        this.removeUserRelation(id);
+    delete(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            logger("delete", id);
+            this.clients.delete(id);
+            this.removeUserRelation(id);
+        });
     }
     /**
      * 加入房间
      * @param id
      * @param room
      */
-    async join(id, room) {
-        logger("join", id, room);
-        let socket = this.get(id);
-        this.addUserRelation("summer01", socket.os, socket.device, socket.browser, room, socket.getid());
+    join(id, room) {
+        return __awaiter(this, void 0, void 0, function* () {
+            logger("join", id, room);
+            let socket = this.get(id);
+            this.addUserRelation("summer01", socket.os, socket.device, socket.browser, room, socket.getid());
+        });
     }
     /**
      * 离开房间
      * @param id
      * @param room
      */
-    async leave(id, room) {
-        logger("leave", id, room);
-        if (this.data_redis) {
-            let keys = await this.data_redis.keys(ALL_KEY.replace(/R\*/, room).replace(/S\*/, id));
-            for (let key of keys) {
-                await this.data_redis.del(key);
+    leave(id, room) {
+        return __awaiter(this, void 0, void 0, function* () {
+            logger("leave", id, room);
+            if (this.data_redis) {
+                let keys = yield this.data_redis.keys(ALL_KEY.replace(/R\*/, room).replace(/S\*/, id));
+                for (let key of keys) {
+                    yield this.data_redis.del(key);
+                }
             }
-        }
-        else {
-            delete this.clientkeys[this.tmpclientkeys[id]];
-            delete this.tmpclientkeys[id];
-        }
+            else {
+                delete this.clientkeys[this.tmpclientkeys[id]];
+                delete this.tmpclientkeys[id];
+            }
+        });
     }
     /**
      * 获取所有的房间号
      */
-    async getRoomall() {
-        return await this.findAllRoomid();
+    getRoomall() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield this.findAllRoomid();
+        });
     }
     /**
      * 根据房间号获取所有的客户端ID
      * @param room
      */
-    async getClientidByroom(room) {
-        return await this.findSidsByRoomid(room);
+    getClientidByroom(room) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield this.findSidsByRoomid(room);
+        });
     }
     /**
      * 根据 客户端ID 获取所在的所有房间ID
      * @param id
      */
-    async getRoomidByid(id) {
-        return await this.findRoomidsBySid(id);
+    getRoomidByid(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield this.findRoomidsBySid(id);
+        });
     }
     /**
      * 判断客户端是否存在啊某个房间
      * @param id
      * @param room
      */
-    async hasRoom(id, room) {
-        let sids = await this.findSidsByRoomid(room);
-        return sids.includes(id);
+    hasRoom(id, room) {
+        return __awaiter(this, void 0, void 0, function* () {
+            let sids = yield this.findSidsByRoomid(room);
+            return sids.includes(id);
+        });
     }
     /**
      * 获取所有的房间总数
      */
-    async getAllRoomcount() {
-        let rooms = await this.findAllRoomid();
-        return rooms.length - 1;
+    getAllRoomcount() {
+        return __awaiter(this, void 0, void 0, function* () {
+            let rooms = yield this.findAllRoomid();
+            return rooms.length - 1;
+        });
     }
     /**
      * 获取房间内人员数量
      * @param room
      */
-    async getRoomsize(room) {
-        let sids = await this.findSidsByRoomid(room);
-        return sids.length;
+    getRoomsize(room) {
+        return __awaiter(this, void 0, void 0, function* () {
+            let sids = yield this.findSidsByRoomid(room);
+            return sids.length;
+        });
     }
     /**
      * 发送房间消息
@@ -362,10 +417,12 @@ class Adapter {
      * @param status
      * @param msg
      */
-    async sendRoomMessage(room, event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
-        for (let id of await this.getClientidByroom(room)) {
-            this.sendSocketMessage(id, event, data, status, msg);
-        }
+    sendRoomMessage(room, event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
+        return __awaiter(this, void 0, void 0, function* () {
+            for (let id of yield this.getClientidByroom(room)) {
+                this.sendSocketMessage(id, event, data, status, msg);
+            }
+        });
     }
     /**
      * 发送广播消息
@@ -374,10 +431,12 @@ class Adapter {
      * @param status
      * @param msg
      */
-    async sendBroadcast(event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
-        for (let sid of await this.getClientidByroom(SYSTEM_ROOMID)) {
-            this.sendSocketMessage(sid, event, data, status, msg);
-        }
+    sendBroadcast(event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
+        return __awaiter(this, void 0, void 0, function* () {
+            for (let sid of yield this.getClientidByroom(SYSTEM_ROOMID)) {
+                this.sendSocketMessage(sid, event, data, status, msg);
+            }
+        });
     }
     /**
      * 发送终端消息
@@ -385,14 +444,16 @@ class Adapter {
      * @param {*} type 消息类型
      * @param {*} data
      */
-    async sendSocketMessage(id, event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
-        logger("sendSocketMessage", { id, data });
-        if (this.pub_redis) {
-            this.pub_redis.publish("emit_socket_message", JSON.stringify({ id, data: { path: event, status, msg, data } }));
-        }
-        else {
-            this.emit_socket_message({ id, data: { path: event, data, status, msg, request_id: 0 } });
-        }
+    sendSocketMessage(id, event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
+        return __awaiter(this, void 0, void 0, function* () {
+            logger("sendSocketMessage", { id, data });
+            if (this.pub_redis) {
+                this.pub_redis.publish("emit_socket_message", JSON.stringify({ id, data: { path: event, status, msg, data } }));
+            }
+            else {
+                this.emit_socket_message({ id, data: { path: event, data, status, msg, request_id: 0 } });
+            }
+        });
     }
 }
 exports.Adapter = Adapter;

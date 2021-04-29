@@ -7,6 +7,15 @@
  * @LastEditTime: 2021-04-27 11:33:38 +0800
  * @FilePath: /ssocket/src/adapter2.ts
  */
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -25,15 +34,17 @@ const REDIS_SURVIVAL_KEY = `ssocket-survival:${os_1.default.hostname()}:${proces
 let __mqsub;
 let __mqpub;
 let redisdata;
-ioredis_1.default.prototype.keys = async function (pattern) {
-    let cursor = 0;
-    let list = [];
-    do {
-        let res = await this.scan(cursor, "match", pattern, "count", 2000);
-        cursor = +res[0];
-        list = list.concat(res[1]);
-    } while (cursor != 0);
-    return list;
+ioredis_1.default.prototype.keys = function (pattern) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let cursor = 0;
+        let list = [];
+        do {
+            let res = yield this.scan(cursor, "match", pattern, "count", 2000);
+            cursor = +res[0];
+            list = list.concat(res[1]);
+        } while (cursor != 0);
+        return list;
+    });
 };
 var RequestMethod;
 (function (RequestMethod) {
@@ -67,31 +78,33 @@ class Adapter extends events_1.EventEmitter {
         this.cluster = Boolean(this.opt.redis && this.opt.mqurl);
         this.init();
     }
-    async init() {
+    init() {
         var _a;
-        if (this.cluster) {
-            try {
-                redisdata = new ioredis_1.default(this.opt.redis);
-                if ((_a = this.opt.redis) === null || _a === void 0 ? void 0 : _a.password)
-                    redisdata.auth(this.opt.redis.password).then(_ => logger("redis", "Password verification succeeded"));
-                const createChannel = async () => {
-                    let __mqconnect = await amqplib_1.connect(this.opt.mqurl + "");
-                    return __mqconnect.createChannel();
-                };
-                __mqsub = await createChannel();
-                await __mqsub.assertExchange(this.channel, "fanout", { durable: false });
-                let qok = await __mqsub.assertQueue("", { exclusive: true });
-                logger("QOK", qok);
-                await __mqsub.bindQueue(qok.queue, this.channel, "");
-                await __mqsub.consume(qok.queue, this.onmessage.bind(this), { noAck: true });
-                __mqpub = await createChannel();
-                await __mqpub.assertExchange(this.channel, "fanout", { durable: false });
-                setInterval(this.survivalHeartbeat.bind(this), 1000);
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.cluster) {
+                try {
+                    redisdata = new ioredis_1.default(this.opt.redis);
+                    if ((_a = this.opt.redis) === null || _a === void 0 ? void 0 : _a.password)
+                        redisdata.auth(this.opt.redis.password).then(_ => logger("redis", "Password verification succeeded"));
+                    const createChannel = () => __awaiter(this, void 0, void 0, function* () {
+                        let __mqconnect = yield amqplib_1.connect(this.opt.mqurl + "");
+                        return __mqconnect.createChannel();
+                    });
+                    __mqsub = yield createChannel();
+                    yield __mqsub.assertExchange(this.channel, "fanout", { durable: false });
+                    let qok = yield __mqsub.assertQueue("", { exclusive: true });
+                    logger("QOK", qok);
+                    yield __mqsub.bindQueue(qok.queue, this.channel, "");
+                    yield __mqsub.consume(qok.queue, this.onmessage.bind(this), { noAck: true });
+                    __mqpub = yield createChannel();
+                    yield __mqpub.assertExchange(this.channel, "fanout", { durable: false });
+                    setInterval(this.survivalHeartbeat.bind(this), 1000);
+                }
+                catch (error) {
+                    this.emit("error", error);
+                }
             }
-            catch (error) {
-                this.emit("error", error);
-            }
-        }
+        });
     }
     survivalHeartbeat() {
         if (redisdata) {
@@ -99,77 +112,83 @@ class Adapter extends events_1.EventEmitter {
         }
     }
     /**获取所有存活主机的数量 */
-    async allSurvivalCount() {
-        let keys = await redisdata.keys(`ssocket-survival:*`);
-        return keys.length;
+    allSurvivalCount() {
+        return __awaiter(this, void 0, void 0, function* () {
+            let keys = yield redisdata.keys(`ssocket-survival:*`);
+            return keys.length;
+        });
     }
-    async publish(msg) {
-        if (__mqpub) {
-            await __mqpub.publish(this.channel, "", msg);
-        }
+    publish(msg) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (__mqpub) {
+                yield __mqpub.publish(this.channel, "", msg);
+            }
+        });
     }
-    async onmessage(msg) {
+    onmessage(msg) {
         var _a;
-        if (msg && msg.content) {
-            try {
-                const args = msgpack.decode(msg.content);
-                const type = args.shift();
-                const uid = args.shift();
-                const requestid = args.shift();
-                switch (type) {
-                    case RequestMethod.response: {
-                        if (this.uid === uid) {
-                            (_a = this.requests.get(requestid)) === null || _a === void 0 ? void 0 : _a.call(this, args.shift());
+        return __awaiter(this, void 0, void 0, function* () {
+            if (msg && msg.content) {
+                try {
+                    const args = msgpack.decode(msg.content);
+                    const type = args.shift();
+                    const uid = args.shift();
+                    const requestid = args.shift();
+                    switch (type) {
+                        case RequestMethod.response: {
+                            if (this.uid === uid) {
+                                (_a = this.requests.get(requestid)) === null || _a === void 0 ? void 0 : _a.call(this, args.shift());
+                            }
+                            break;
                         }
-                        break;
-                    }
-                    case RequestMethod.getRoomall: {
-                        this.publish(msgpack.encode([RequestMethod.response, uid, requestid, [...this.rooms.keys()]]));
-                        break;
-                    }
-                    case RequestMethod.getClientidByroom: {
-                        this.publish(msgpack.encode([RequestMethod.response, uid, requestid, [...(this.rooms.get(args.shift()) || [])]]));
-                        break;
-                    }
-                    case RequestMethod.getRoomidByid: {
-                        this.publish(msgpack.encode([RequestMethod.response, uid, requestid, [...(this.client2rooms.get(args.shift()) || [])]]));
-                        break;
-                    }
-                    case RequestMethod.broadcast: {
-                        switch (args.shift()) {
-                            case BroadcastType.room: {
-                                let room = args.shift();
-                                let [event, data, status, msg] = args.shift();
-                                for (let id of this.rooms.get(room) || []) {
-                                    this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
-                                }
-                                break;
-                            }
-                            case BroadcastType.socket: {
-                                let id = args.shift();
-                                let [event, data, status, msg] = args.shift();
-                                this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
-                                break;
-                            }
-                            case BroadcastType.all: {
-                                let [event, data, status, msg] = args.shift();
-                                for (let id of this.clients.keys() || []) {
-                                    this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
-                                }
-                                break;
-                            }
-                            default:
-                                break;
+                        case RequestMethod.getRoomall: {
+                            this.publish(msgpack.encode([RequestMethod.response, uid, requestid, [...this.rooms.keys()]]));
+                            break;
                         }
-                        break;
+                        case RequestMethod.getClientidByroom: {
+                            this.publish(msgpack.encode([RequestMethod.response, uid, requestid, [...(this.rooms.get(args.shift()) || [])]]));
+                            break;
+                        }
+                        case RequestMethod.getRoomidByid: {
+                            this.publish(msgpack.encode([RequestMethod.response, uid, requestid, [...(this.client2rooms.get(args.shift()) || [])]]));
+                            break;
+                        }
+                        case RequestMethod.broadcast: {
+                            switch (args.shift()) {
+                                case BroadcastType.room: {
+                                    let room = args.shift();
+                                    let [event, data, status, msg] = args.shift();
+                                    for (let id of this.rooms.get(room) || []) {
+                                        this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
+                                    }
+                                    break;
+                                }
+                                case BroadcastType.socket: {
+                                    let id = args.shift();
+                                    let [event, data, status, msg] = args.shift();
+                                    this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
+                                    break;
+                                }
+                                case BroadcastType.all: {
+                                    let [event, data, status, msg] = args.shift();
+                                    for (let id of this.clients.keys() || []) {
+                                        this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
+                                    }
+                                    break;
+                                }
+                                default:
+                                    break;
+                            }
+                            break;
+                        }
+                        default:
                     }
-                    default:
+                }
+                catch (error) {
+                    this.emit("error", error);
                 }
             }
-            catch (error) {
-                this.emit("error", error);
-            }
-        }
+        });
     }
     emitSocketMessage(id, event, data, status, msg) {
         let client = this.clients.get(id);
@@ -243,89 +262,95 @@ class Adapter extends events_1.EventEmitter {
     /**
      * 获取所有的房间号
      */
-    async getRoomall() {
-        return new Promise(async (resolve, reject) => {
-            if (!this.cluster) {
-                return resolve([...this.rooms.keys()]);
-            }
-            let requestoutid = setTimeout(_ => reject("Waiting for MQ to return [getRoomall] message timed out"), this.requestsTimeout);
-            let requestid = utils_1.id24();
-            let servercount = await this.allSurvivalCount();
-            let result = [];
-            let callback = function (rooms) {
-                if (--servercount > 0) {
-                    result = result.concat(rooms);
+    getRoomall() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+                if (!this.cluster) {
+                    return resolve([...this.rooms.keys()]);
                 }
-                else {
-                    this.requests.delete(requestid);
-                    clearInterval(requestoutid);
-                    result = result.concat(rooms);
-                    resolve(result);
-                }
-            };
-            let msg = msgpack.encode([RequestMethod.getRoomall, this.uid, requestid]);
-            this.publish(msg);
-            this.requests.set(requestid, callback);
+                let requestoutid = setTimeout(_ => reject("Waiting for MQ to return [getRoomall] message timed out"), this.requestsTimeout);
+                let requestid = utils_1.id24();
+                let servercount = yield this.allSurvivalCount();
+                let result = [];
+                let callback = function (rooms) {
+                    if (--servercount > 0) {
+                        result = result.concat(rooms);
+                    }
+                    else {
+                        this.requests.delete(requestid);
+                        clearInterval(requestoutid);
+                        result = result.concat(rooms);
+                        resolve(result);
+                    }
+                };
+                let msg = msgpack.encode([RequestMethod.getRoomall, this.uid, requestid]);
+                this.publish(msg);
+                this.requests.set(requestid, callback);
+            }));
         });
     }
     /**
      * 根据房间号获取所有的客户端ID
      * @param room
      */
-    async getClientidByroom(room) {
-        return new Promise(async (resolve, reject) => {
-            room = String(room);
-            if (!this.cluster) {
-                return resolve([...this.rooms.get(room) || []]);
-            }
-            let requestoutid = setTimeout(_ => reject("Waiting for MQ to return [getClientidByroom] message timed out"), this.requestsTimeout);
-            let requestid = utils_1.id24();
-            let servercount = await this.allSurvivalCount();
-            let result = [];
-            let callback = function (sockets) {
-                if (--servercount > 0) {
-                    result = result.concat(sockets);
+    getClientidByroom(room) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+                room = String(room);
+                if (!this.cluster) {
+                    return resolve([...this.rooms.get(room) || []]);
                 }
-                else {
-                    this.requests.delete(requestid);
-                    clearInterval(requestoutid);
-                    result = result.concat(sockets);
-                    resolve(result);
-                }
-            };
-            let msg = msgpack.encode([RequestMethod.getClientidByroom, this.uid, requestid, room]);
-            this.publish(msg);
-            this.requests.set(requestid, callback);
+                let requestoutid = setTimeout(_ => reject("Waiting for MQ to return [getClientidByroom] message timed out"), this.requestsTimeout);
+                let requestid = utils_1.id24();
+                let servercount = yield this.allSurvivalCount();
+                let result = [];
+                let callback = function (sockets) {
+                    if (--servercount > 0) {
+                        result = result.concat(sockets);
+                    }
+                    else {
+                        this.requests.delete(requestid);
+                        clearInterval(requestoutid);
+                        result = result.concat(sockets);
+                        resolve(result);
+                    }
+                };
+                let msg = msgpack.encode([RequestMethod.getClientidByroom, this.uid, requestid, room]);
+                this.publish(msg);
+                this.requests.set(requestid, callback);
+            }));
         });
     }
     /**
      * 根据 客户端ID 获取所在的所有房间ID
      * @param id
      */
-    async getRoomidByid(id) {
-        return new Promise(async (resolve, reject) => {
-            id = String(id);
-            if (!this.cluster) {
-                return resolve([...this.client2rooms.get(id) || []]);
-            }
-            let requestoutid = setTimeout(_ => reject("Waiting for MQ to return [getRoomidByid] message timed out"), this.requestsTimeout);
-            let requestid = utils_1.id24();
-            let servercount = await this.allSurvivalCount();
-            let result = [];
-            let callback = function (rooms) {
-                if (--servercount > 0) {
-                    result = result.concat(rooms);
+    getRoomidByid(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+                id = String(id);
+                if (!this.cluster) {
+                    return resolve([...this.client2rooms.get(id) || []]);
                 }
-                else {
-                    this.requests.delete(requestid);
-                    clearInterval(requestoutid);
-                    result = result.concat(rooms);
-                    resolve(result);
-                }
-            };
-            let msg = msgpack.encode([RequestMethod.getRoomidByid, this.uid, requestid, id]);
-            this.publish(msg);
-            this.requests.set(requestid, callback);
+                let requestoutid = setTimeout(_ => reject("Waiting for MQ to return [getRoomidByid] message timed out"), this.requestsTimeout);
+                let requestid = utils_1.id24();
+                let servercount = yield this.allSurvivalCount();
+                let result = [];
+                let callback = function (rooms) {
+                    if (--servercount > 0) {
+                        result = result.concat(rooms);
+                    }
+                    else {
+                        this.requests.delete(requestid);
+                        clearInterval(requestoutid);
+                        result = result.concat(rooms);
+                        resolve(result);
+                    }
+                };
+                let msg = msgpack.encode([RequestMethod.getRoomidByid, this.uid, requestid, id]);
+                this.publish(msg);
+                this.requests.set(requestid, callback);
+            }));
         });
     }
     /**
@@ -333,26 +358,32 @@ class Adapter extends events_1.EventEmitter {
      * @param id
      * @param room
      */
-    async hasRoom(id, room) {
-        id = String(id);
-        room = String(room);
-        let rooms = await this.getRoomidByid(id);
-        return rooms.includes(room);
+    hasRoom(id, room) {
+        return __awaiter(this, void 0, void 0, function* () {
+            id = String(id);
+            room = String(room);
+            let rooms = yield this.getRoomidByid(id);
+            return rooms.includes(room);
+        });
     }
     /**
      * 获取所有的房间总数
      */
-    async getAllRoomcount() {
-        let rooms = await this.getRoomall();
-        return rooms.length;
+    getAllRoomcount() {
+        return __awaiter(this, void 0, void 0, function* () {
+            let rooms = yield this.getRoomall();
+            return rooms.length;
+        });
     }
     /**
      * 获取房间内人员数量
      * @param room
      */
-    async getRoomsize(room) {
-        let clients = await this.getClientidByroom(room);
-        return clients.length;
+    getRoomsize(room) {
+        return __awaiter(this, void 0, void 0, function* () {
+            let clients = yield this.getClientidByroom(room);
+            return clients.length;
+        });
     }
     /**
      * 发送房间消息
@@ -362,15 +393,17 @@ class Adapter extends events_1.EventEmitter {
      * @param status
      * @param msg
      */
-    async sendRoomMessage(room, event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
-        room = String(room);
-        if (!this.cluster) {
-            for (let id of this.rooms.get(room) || []) {
-                this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
+    sendRoomMessage(room, event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
+        return __awaiter(this, void 0, void 0, function* () {
+            room = String(room);
+            if (!this.cluster) {
+                for (let id of this.rooms.get(room) || []) {
+                    this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
+                }
+                return;
             }
-            return;
-        }
-        this.publish(msgpack.encode([RequestMethod.broadcast, this.uid, 0, BroadcastType.room, room, [event, data, status, msg]]));
+            this.publish(msgpack.encode([RequestMethod.broadcast, this.uid, 0, BroadcastType.room, room, [event, data, status, msg]]));
+        });
     }
     /**
      * 发送广播消息
@@ -379,14 +412,16 @@ class Adapter extends events_1.EventEmitter {
      * @param status
      * @param msg
      */
-    async sendBroadcast(event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
-        if (!this.cluster) {
-            for (let id of this.clients.keys() || []) {
-                this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
+    sendBroadcast(event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this.cluster) {
+                for (let id of this.clients.keys() || []) {
+                    this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
+                }
+                return;
             }
-            return;
-        }
-        this.publish(msgpack.encode([RequestMethod.broadcast, this.uid, 0, BroadcastType.all, [event, data, status, msg]]));
+            this.publish(msgpack.encode([RequestMethod.broadcast, this.uid, 0, BroadcastType.all, [event, data, status, msg]]));
+        });
     }
     /**
      * 发送终端消息
@@ -394,13 +429,15 @@ class Adapter extends events_1.EventEmitter {
      * @param {*} type 消息类型
      * @param {*} data
      */
-    async sendSocketMessage(id, event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
-        id = String(id);
-        if (!this.cluster) {
-            this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
-            return;
-        }
-        this.publish(msgpack.encode([RequestMethod.broadcast, this.uid, 0, BroadcastType.socket, id, [event, data, status, msg]]));
+    sendSocketMessage(id, event, data, status = code_1.default[200][0], msg = code_1.default[200][1]) {
+        return __awaiter(this, void 0, void 0, function* () {
+            id = String(id);
+            if (!this.cluster) {
+                this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
+                return;
+            }
+            this.publish(msgpack.encode([RequestMethod.broadcast, this.uid, 0, BroadcastType.socket, id, [event, data, status, msg]]));
+        });
     }
 }
 exports.Adapter = Adapter;
