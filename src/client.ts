@@ -3,7 +3,7 @@
  * @LastEditors: Summer
  * @Description: 
  * @Date: 2021-03-25 12:14:10 +0800
- * @LastEditTime: 2021-05-10 15:41:37 +0800
+ * @LastEditTime: 2021-05-10 18:05:21 +0800
  * @FilePath: /ssocket/src/client.ts
  */
 import WebSocket from "ws";
@@ -80,7 +80,6 @@ export class SWebSocket extends EventEmitter {
                 this.shakehands(Code.SocketStatus.CONNECTION);
                 this.emit("shakehands", this.status = Code.SocketStatus.CONNECTION)
                 this.emit(this.id != data.id ? "reconnection" : "connection", this.id = data.id)
-                this.socket.send(Code.encode(Code.PackageType.heartbeat))
             }
         }
         else if(data.type == Code.PackageType.heartbeat) {
