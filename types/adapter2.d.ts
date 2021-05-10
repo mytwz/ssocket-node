@@ -19,11 +19,15 @@ export declare class Adapter extends EventEmitter {
     private readonly channel;
     private readonly requests;
     private readonly cluster;
+    private readonly msgbuffers;
+    private survivalid;
+    private ispublish;
     constructor(opt: Options);
     init(): Promise<void>;
     private survivalHeartbeat;
     /**获取所有存活主机的数量 */
     private allSurvivalCount;
+    private startPublish;
     private publish;
     private onmessage;
     private emitSocketMessage;

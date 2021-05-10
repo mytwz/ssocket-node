@@ -3,7 +3,7 @@
  * @LastEditors: Summer
  * @Description: 
  * @Date: 2021-04-26 16:51:46 +0800
- * @LastEditTime: 2021-04-27 11:33:38 +0800
+ * @LastEditTime: 2021-05-10 11:45:46 +0800
  * @FilePath: /ssocket/src/adapter2.ts
  */
 
@@ -75,6 +75,9 @@ export class Adapter extends EventEmitter {
     private readonly channel: string;
     private readonly requests: Map<string, Function> = new Map();
     private readonly cluster: boolean;
+    private readonly msgbuffers: Buffer[] = [];
+    private survivalid:any = 0;
+    private ispublish: boolean = false;
 
     constructor(private opt: Options) {
         super();
@@ -87,29 +90,34 @@ export class Adapter extends EventEmitter {
 
     async init() {
         if(this.cluster){
+            clearInterval(this.survivalid)
             try {
-
-                redisdata = new ioredis(this.opt.redis);
-                if(this.opt.redis?.password) redisdata.auth(this.opt.redis.password).then(_=> logger("redis", "Password verification succeeded"))
-                
-                const createChannel = async () => {
-                    let __mqconnect = await connect(this.opt.mqurl+"");
-                    return __mqconnect.createChannel();
-                }
-
-                __mqsub = await createChannel();
-                await __mqsub.assertExchange(this.channel, "fanout", { durable: false });
-                let qok = await __mqsub.assertQueue("", { exclusive: true }); logger("QOK", qok);
-                await __mqsub.bindQueue(qok.queue, this.channel, "");
-                await __mqsub.consume(qok.queue, this.onmessage.bind(this), { noAck: true })
-
-                __mqpub = await createChannel();
-                await __mqpub.assertExchange(this.channel, "fanout", { durable: false });
-
-                setInterval(this.survivalHeartbeat.bind(this), 1000);
+                if(redisdata) redisdata.disconnect()
+                if(__mqsub) __mqsub.close();
+                if(__mqpub) __mqpub.close();
             } catch (error) {
-                this.emit("error", error);
+                
             }
+
+            redisdata = new ioredis(this.opt.redis);
+            if(this.opt.redis?.password) redisdata.auth(this.opt.redis.password).then(_=> logger("redis", "Password verification succeeded"))
+            
+            const createChannel = async () => {
+                let __mqconnect = await connect(this.opt.mqurl+"");
+                return __mqconnect.createChannel();
+            }
+
+            __mqsub = await createChannel();
+            await __mqsub.assertExchange(this.channel, "fanout", { durable: false });
+            let qok = await __mqsub.assertQueue("", { exclusive: true }); logger("QOK", qok);
+            await __mqsub.bindQueue(qok.queue, this.channel, "");
+            await __mqsub.consume(qok.queue, this.onmessage.bind(this), { noAck: true })
+
+            __mqpub = await createChannel();
+            await __mqpub.assertExchange(this.channel, "fanout", { durable: false });
+
+            this.survivalid = setInterval(this.survivalHeartbeat.bind(this), 1000);
+            this.ispublish = false;
         }
     }
 
@@ -125,10 +133,26 @@ export class Adapter extends EventEmitter {
         return keys.length;
     }
 
-    private async publish(msg: Buffer): Promise<void> {
-        if (__mqpub) {
-            await __mqpub.publish(this.channel, "", msg)
+    
+    private startPublish(){
+        if(this.ispublish === false && __mqpub){
+            let msg = null;
+            try {
+                this.ispublish = true;
+                while (msg = this.msgbuffers.pop()) {
+                    __mqpub.publish(this.channel, "", msg);
+                }
+                this.ispublish = false;
+            } catch (error) {
+                msg && this.msgbuffers.unshift(msg)
+                this.init();
+            }
         }
+    }
+
+    private async publish(msg: Buffer): Promise<void> {
+        this.msgbuffers.push(msg);
+        this.startPublish();
     }
 
     private async onmessage(msg: ConsumeMessage | null): Promise<void> {

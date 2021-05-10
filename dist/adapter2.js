@@ -4,7 +4,7 @@
  * @LastEditors: Summer
  * @Description:
  * @Date: 2021-04-26 16:51:46 +0800
- * @LastEditTime: 2021-04-27 11:33:38 +0800
+ * @LastEditTime: 2021-05-10 11:45:46 +0800
  * @FilePath: /ssocket/src/adapter2.ts
  */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
@@ -72,6 +72,9 @@ class Adapter extends events_1.EventEmitter {
         this.rooms = new Map();
         this.client2rooms = new Map();
         this.requests = new Map();
+        this.msgbuffers = [];
+        this.survivalid = 0;
+        this.ispublish = false;
         this.uid = utils_1.id24();
         this.requestsTimeout = ((_a = this.opt) === null || _a === void 0 ? void 0 : _a.requestsTimeout) || 5000;
         this.channel = "ssocket-adapter-message";
@@ -82,27 +85,34 @@ class Adapter extends events_1.EventEmitter {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
             if (this.cluster) {
+                clearInterval(this.survivalid);
                 try {
-                    redisdata = new ioredis_1.default(this.opt.redis);
-                    if ((_a = this.opt.redis) === null || _a === void 0 ? void 0 : _a.password)
-                        redisdata.auth(this.opt.redis.password).then(_ => logger("redis", "Password verification succeeded"));
-                    const createChannel = () => __awaiter(this, void 0, void 0, function* () {
-                        let __mqconnect = yield amqplib_1.connect(this.opt.mqurl + "");
-                        return __mqconnect.createChannel();
-                    });
-                    __mqsub = yield createChannel();
-                    yield __mqsub.assertExchange(this.channel, "fanout", { durable: false });
-                    let qok = yield __mqsub.assertQueue("", { exclusive: true });
-                    logger("QOK", qok);
-                    yield __mqsub.bindQueue(qok.queue, this.channel, "");
-                    yield __mqsub.consume(qok.queue, this.onmessage.bind(this), { noAck: true });
-                    __mqpub = yield createChannel();
-                    yield __mqpub.assertExchange(this.channel, "fanout", { durable: false });
-                    setInterval(this.survivalHeartbeat.bind(this), 1000);
+                    if (redisdata)
+                        redisdata.disconnect();
+                    if (__mqsub)
+                        __mqsub.close();
+                    if (__mqpub)
+                        __mqpub.close();
                 }
                 catch (error) {
-                    this.emit("error", error);
                 }
+                redisdata = new ioredis_1.default(this.opt.redis);
+                if ((_a = this.opt.redis) === null || _a === void 0 ? void 0 : _a.password)
+                    redisdata.auth(this.opt.redis.password).then(_ => logger("redis", "Password verification succeeded"));
+                const createChannel = () => __awaiter(this, void 0, void 0, function* () {
+                    let __mqconnect = yield amqplib_1.connect(this.opt.mqurl + "");
+                    return __mqconnect.createChannel();
+                });
+                __mqsub = yield createChannel();
+                yield __mqsub.assertExchange(this.channel, "fanout", { durable: false });
+                let qok = yield __mqsub.assertQueue("", { exclusive: true });
+                logger("QOK", qok);
+                yield __mqsub.bindQueue(qok.queue, this.channel, "");
+                yield __mqsub.consume(qok.queue, this.onmessage.bind(this), { noAck: true });
+                __mqpub = yield createChannel();
+                yield __mqpub.assertExchange(this.channel, "fanout", { durable: false });
+                this.survivalid = setInterval(this.survivalHeartbeat.bind(this), 1000);
+                this.ispublish = false;
             }
         });
     }
@@ -118,11 +128,26 @@ class Adapter extends events_1.EventEmitter {
             return keys.length;
         });
     }
+    startPublish() {
+        if (this.ispublish === false && __mqpub) {
+            let msg = null;
+            try {
+                this.ispublish = true;
+                while (msg = this.msgbuffers.pop()) {
+                    __mqpub.publish(this.channel, "", msg);
+                }
+                this.ispublish = false;
+            }
+            catch (error) {
+                msg && this.msgbuffers.unshift(msg);
+                this.init();
+            }
+        }
+    }
     publish(msg) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (__mqpub) {
-                yield __mqpub.publish(this.channel, "", msg);
-            }
+            this.msgbuffers.push(msg);
+            this.startPublish();
         });
     }
     onmessage(msg) {
