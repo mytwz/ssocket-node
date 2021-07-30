@@ -1,107 +1,41 @@
+/// <reference types="node" />
 import { SWebSocket } from "./client";
 import { RedisOptions } from "ioredis";
+import { EventEmitter } from 'events';
 /**配置 */
-export interface Options extends RedisOptions {
+export interface Options {
+    redis?: RedisOptions;
+    mqurl?: string;
+    requestsTimeout?: number;
+    key?: string;
     [key: string]: any;
 }
-export declare class Adapter {
-    private opts?;
-    /**客户端集合 */
-    private clients;
-    /**Redis 订阅对象 */
-    private sub_redis;
-    /**Redis  */
-    private pub_redis;
-    /**事件触发器 */
-    private emitter;
-    private clientkeys;
-    private tmpclientkeys;
-    private data_redis;
-    constructor(opts?: Options | undefined);
-    /**
-     * @param channel
-     * @param os
-     * @param device
-     * @param browser
-     * @param roomid
-     * @param uid
-     * @param sid
-     */
-    addUserRelation(channel: string, os: string, device: string, browser: string, roomid: string, sid: string): Promise<void>;
-    /**
-     * 移除客户端关系
-     * @param {*} sid
-     */
-    removeUserRelation(sid: string): Promise<void>;
-    /**
-     * 获取 ID
-     * @param {*} keyPattern Redis Key
-     * @param {*} regExp 对应资源的正则
-     */
-    private findIds;
-    /**
-     * 在 Keys 中获取 ID列表
-     * @param {*} keys
-     * @param {*} keyPattern
-     * @param {*} regExp
-     */
-    private findIdsByKeys;
-    /**
-     * 从 Key 中获取指定的 ID
-     * @param {*} key
-     * @param {*} regExp
-     */
-    private matchId;
-    /**
-     * 从 Key 中获取指定的 ID
-     * @param {*} keys
-     * @param {*} regExp
-     */
-    private matchIds;
-    /**
-     * 根据房间ID获取所有的 Sid
-     * @param {*} roomid
-     */
-    findSidsByRoomid(roomid: string): Promise<string[]>;
-    /**
-     * 根据房间ID获取所有的 Uid
-     * @param {*} roomid
-     */
-    findUidsByRoomid(roomid: string): Promise<string[]>;
-    /**
-     * 根据 SID 获取房间ID
-     * @param {*} uid
-     */
-    findRoomidsBySid(sid: string): Promise<string[]>;
-    /**
-     * 根据 UID 获取 SID
-     * @param {*} uid
-     */
-    findSidsByRoomidAndUid(roomid: string, uid: string): Promise<string[]>;
-    /**
-     * 获取所有的 ROOMID
-     */
-    findAllRoomid(): Promise<string[]>;
-    /**
-     * 获取所有的 channel
-     */
-    findAllEquipment(): Promise<string[]>;
-    /**获取所有的Sid */
-    findAllSids(): Promise<string[]>;
-    /**
-     * 根据 channel 获取 ROOMID
-     * @param {*} channel
-     */
-    findRoomidsByEquipment(equipment: string): Promise<string[]>;
-    /**
-     * 获取所有的 Keys
-     */
-    findAllKeys(): Promise<string[]>;
-    /**
-     * 通过 Redis 进行多服务器消息同步
-     * @param message
-     */
-    private emit_socket_message;
+export declare class Adapter extends EventEmitter {
+    private opt;
+    readonly uid: string;
+    readonly requestsTimeout: number;
+    private readonly clients;
+    private readonly rooms;
+    private readonly client2rooms;
+    private readonly channel;
+    private readonly requests;
+    private readonly cluster;
+    private readonly msgbuffers;
+    private survivalid;
+    /**检查通道可用性 */
+    private checkchannelid;
+    private ispublish;
+    constructor(opt: Options);
+    init(): Promise<void>;
+    private checkChannel;
+    private sendCheckChannel;
+    private survivalHeartbeat;
+    /**获取所有存活主机的数量 */
+    private allSurvivalCount;
+    private startPublish;
+    private publish;
+    private onmessage;
+    private emitSocketMessage;
     /**
      * 获取一个 Socket 客户端对象
      * @param id
@@ -112,24 +46,24 @@ export declare class Adapter {
      * @param {*} id
      * @param {*} socket
      */
-    set(socket: SWebSocket): Promise<SWebSocket>;
+    set(socket: SWebSocket): SWebSocket;
     /**
      * 删除一个 Socket 连接
      * @param {*} id
      */
-    delete(id: string): Promise<void>;
+    delete(id: string): void;
     /**
      * 加入房间
      * @param id
      * @param room
      */
-    join(id: string, room: string): Promise<void>;
+    join(id: string, room: string): void;
     /**
      * 离开房间
      * @param id
      * @param room
      */
-    leave(id: string, room: string): Promise<void>;
+    leave(id: string, room: string): void;
     /**
      * 获取所有的房间号
      */

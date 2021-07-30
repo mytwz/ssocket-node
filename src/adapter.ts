@@ -2,10 +2,12 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description: 
- * @LastEditTime: 2021-04-26 16:48:39 +0800
+ * @Date: 2021-04-26 16:51:46 +0800
+ * @LastEditTime: 2021-07-30 10:49:49 +0800
  * @FilePath: /ssocket/src/adapter.ts
  */
 
+import { connect, Channel, ConsumeMessage, Connection } from "amqplib";
 import { SWebSocket } from "./client";
 import CODE, * as Code from "./code";
 import { Redis, RedisOptions } from "ioredis"
@@ -13,25 +15,21 @@ import ioredis from "ioredis"
 import { EventEmitter } from 'events';
 import debug from "./logger";
 import os from "os";
-const HOST_NAME = os.hostname()
-
-/**配置 */
-export interface Options extends RedisOptions {
-    
-    [key: string]: any;
-}
+import { id24 } from "./utils"
+const msgpack = require("notepack.io");
 
 const logger = debug("adapter")
 
-/**系统事件 */
-const SYNC_EVENTS: string[] = [
-    "emit_socket_message",
-]
+const REDIS_SURVIVAL_KEY = `ssocket-survival:${os.hostname()}:${process.pid}`
 
+let __mqconnect: Connection;
+let __mqsub: Channel;
+let __mqpub: Channel;
+let redisdata: Redis;
 
-ioredis.prototype.keys = async function(pattern: string){
+ioredis.prototype.keys = async function (pattern: string) {
     let cursor = 0;
-    let list:string[] = [];
+    let list: string[] = [];
     do {
         let res = await this.scan(cursor, "match", pattern, "count", 2000);
         cursor = +res[0];
@@ -41,257 +39,234 @@ ioredis.prototype.keys = async function(pattern: string){
     return list;
 }
 
+enum RequestMethod {
+    join = 0,
+    leave,
+    broadcast,
+    getRoomall,
+    getClientidByroom,
+    getRoomidByid,
+    ////////////////////
+    response,
 
-/**Redis Key */
-const REDIS_SOCKET_SERVICE_KEY = "ssocket_service"
-/**获取主机名的正则 */
-const HOSTNAME_REGEXP = /(?<=:H)[^:]+/g
-/**获取进程号的正则 */
-const PROCESS_REGEXP = /(?<=:P)[^:]+/g
-/**获取渠道号的正则 */
-const CHANNEL_REGEXP = /(?<=:C)[^:]+/g
-/**获取设备号的正则 */
-const EQUIPMENT_REGEXP = /(?<=:D)[^:]+/g
-/**获取房间号的正则 */
-const ROOM_ID_REGEXP = /(?<=:R)[^:]+/g
-/**获取用户 ID 的正则 */
-const UID_REGEXP = /(?<=:U)[^:]+/g
-/**获取 Socket 连接 ID 的正则 */
-const SID_REGEXP = /(?<=:S)[^:]+/g
+    checkChannel
+}
 
-const X = "XXX";
-const U = /(?<=U)\*/;
-const R = /(?<=R)\*/;
-const D = /(?<=D)\*/;
-const C = /(?<=C)\*/;
-const S = /(?<=S)\*/;
-const P = /(?<=P)\*/;
-const H = /(?<=H)\*/;
+enum BroadcastType {
+    room = 0, all, socket
+}
 
-const HOST_PROCESS = `H${HOST_NAME}:P${process.pid}`;
+type ResponseCallback<T> = (this: Adapter, result: T) => void;
 
-const ALL_KEY = `${REDIS_SOCKET_SERVICE_KEY}:H*:P*:C*:O*:D*:B*:R*:S*`
-const HOST_KEY = `${REDIS_SOCKET_SERVICE_KEY}:H${X}:P*:C*:O*:D*:B*:R*:S*`
-const PROCESS_KEY = `${REDIS_SOCKET_SERVICE_KEY}:H*:P${X}:C*:O*:D*:B*:R*:S*`
-const SID_KEY = `${REDIS_SOCKET_SERVICE_KEY}:H*:P*:C*:O*:D*:B*:R*:S${X}`;
-const ROOM_ID_KEY = `${REDIS_SOCKET_SERVICE_KEY}:H*:P*:C*:O*:D*:B*:R${X}:S*`;
-const EQUIPMENT_KEY = `${REDIS_SOCKET_SERVICE_KEY}:H*:P*:C*:O*:D${X}:B*:R*:S*`;
-const CHANNEL_KEY = `${REDIS_SOCKET_SERVICE_KEY}:H*:P*:C${X}:O*:D*:B*:R*:S*`;
+/**配置 */
+export interface Options {
+    redis?: RedisOptions;
+    mqurl?: string;
+    requestsTimeout?: number;
+    key?: string;
+    [key: string]: any;
+}
 
-const SYSTEM_ROOMID = "unknown";
-const SYSTEM_USERID = "unknown";
+export class Adapter extends EventEmitter {
 
-export class Adapter {
+    public readonly uid: string;
+    public readonly requestsTimeout: number;
 
-    /**客户端集合 */
-    private clients: Map<string, SWebSocket> = new Map();
-    /**Redis 订阅对象 */
-    private sub_redis: Redis = <Redis><unknown>undefined;
-    /**Redis  */
-    private pub_redis: Redis = <Redis><unknown>undefined;
-    /**事件触发器 */
-    private emitter: EventEmitter = new EventEmitter();
-    private clientkeys: { [key: string]: string } = {};
-    private tmpclientkeys: { [key: string]: string } = {};
-    private data_redis: Redis = <Redis><unknown>undefined;
+    private readonly clients: Map<string/**sid */, SWebSocket> = new Map();
+    private readonly rooms: Map<string/**roomid */, Set<string/**sid */>> = new Map();
+    private readonly client2rooms: Map<string/**sid */, Set<string/**roomid */>> = new Map();
+    private readonly channel: string;
+    private readonly requests: Map<string, Function> = new Map();
+    private readonly cluster: boolean;
+    private readonly msgbuffers: Buffer[] = [];
+    private survivalid:any = 0;
+    /**检查通道可用性 */
+    private checkchannelid: any = 0;
+    private ispublish: boolean = false;
 
-    constructor(private opts?: Options) {
-        if(this.opts){
-            this.sub_redis = new ioredis(this.opts);;
-            this.pub_redis = new ioredis(this.opts);;
-            this.data_redis = new ioredis(this.opts);;
+    constructor(private opt: Options) {
+        super();
+        this.uid = id24();
+        this.requestsTimeout = this.opt?.requestsTimeout || 5000;
+        this.channel = `${(this.opt.key || "key")}-ssocket-adapter-message`;
+        this.cluster = Boolean(this.opt.redis && this.opt.mqurl)
+        this.init();
+    }
+
+    async init() {
+        if(this.cluster){
+            this.ispublish = true;
+            clearInterval(this.survivalid)
+            clearTimeout(this.checkchannelid);
+            try {
+                if (redisdata) redisdata.disconnect()
+            } catch (error) { console.log(REDIS_SURVIVAL_KEY, error) }
     
-            if (this.opts.password) {
-                try {
-                    this.sub_redis.auth(this.opts.password)
-                    this.pub_redis.auth(this.opts.password)
-                    this.data_redis.auth(this.opts.password)
-                } catch (error) {
-                    logger("constructor", error)
+            try {
+                if (__mqsub) __mqsub.close();
+            } catch (error) { console.log(REDIS_SURVIVAL_KEY, error) }
+    
+            try {
+                if (__mqpub) __mqpub.close();
+            } catch (error) { console.log(REDIS_SURVIVAL_KEY, error) }
+    
+            try {
+                if (__mqconnect) __mqconnect.close();
+            } catch (error) { console.log(REDIS_SURVIVAL_KEY, error) }
+    
+            redisdata = __mqsub = __mqpub = __mqconnect = <any>null;
+
+            redisdata = new ioredis(this.opt.redis);
+            if(this.opt.redis?.password) redisdata.auth(this.opt.redis.password).then(_=> logger("redis", "Password verification succeeded"))
+            
+            __mqconnect = await connect(this.opt.mqurl+"");
+            __mqsub = await __mqconnect.createChannel();
+            await __mqsub.assertExchange(this.channel, "fanout", { durable: false });
+            let qok = await __mqsub.assertQueue("", { exclusive: true }); logger("QOK", qok);
+            await __mqsub.bindQueue(qok.queue, this.channel, "");
+            await __mqsub.consume(qok.queue, this.onmessage.bind(this), { noAck: true })
+
+            __mqpub = await __mqconnect.createChannel();
+            await __mqpub.assertExchange(this.channel, "fanout", { durable: false });
+
+            this.survivalid = setInterval(this.survivalHeartbeat.bind(this), 1000);
+            this.ispublish = false;
+            this.sendCheckChannel();
+
+            console.log(`[${REDIS_SURVIVAL_KEY}]["建立 MQ 消息通道完成", ${JSON.stringify(qok)}]`)
+        }
+    }
+
+    private checkChannel() {
+        console.log(`[${REDIS_SURVIVAL_KEY}]["MQ 消息通道超时响应，开始重新建立连接"]`);
+        this.init();
+    }
+
+    private sendCheckChannel() {
+        this.msgbuffers.unshift(msgpack.encode([RequestMethod.checkChannel, this.uid]));
+        this.checkchannelid = setTimeout(this.checkChannel.bind(this), this.requestsTimeout);
+        this.startPublish();
+    }
+
+    private survivalHeartbeat(){
+        if(redisdata){
+            redisdata.set(REDIS_SURVIVAL_KEY, 1, "ex", 2);
+        }
+    }
+
+    /**获取所有存活主机的数量 */
+    private async allSurvivalCount(): Promise<number> {
+        let keys = await redisdata.keys(`ssocket-survival:*`);
+        return keys.length;
+    }
+
+    
+    private startPublish(){
+        if(this.ispublish === false && __mqpub){
+            let msg = null;
+            try {
+                this.ispublish = true;
+                while (msg = this.msgbuffers.pop()) {
+                    __mqpub.publish(this.channel, "", msg);
                 }
-            }
-    
-            this.sub_redis.subscribe(SYNC_EVENTS)
-            this.sub_redis.on("message", (event: string, message: string) => {
-                logger("redis-event", message)
-                this.emitter.emit(event, JSON.parse(message))
-            })
-    
-            this.emitter.on("emit_socket_message", this.emit_socket_message.bind(this))
-        }
-        
-        logger("constructor", { opts: this.opts })
-    }
-
-
-    /**
-     * @param channel 
-     * @param os 
-     * @param device 
-     * @param browser 
-     * @param roomid 
-     * @param uid 
-     * @param sid 
-     */
-    public async addUserRelation(channel:string, os:string, device:string, browser:string, roomid:string,  sid:string): Promise<void> {
-        let key = `${REDIS_SOCKET_SERVICE_KEY}:${HOST_PROCESS}:C${channel}:O${os}:D${device}:B${browser}:R${roomid}:S${sid}`;
-        if(this.data_redis){
-            await this.data_redis.set(key, sid, "px", 1000 * 60 * 60 * 24);
-        }
-        else this.tmpclientkeys[this.clientkeys[key] = sid] = key;
-    }
-
-    /**
-     * 移除客户端关系
-     * @param {*} sid 
-     */
-    public async removeUserRelation(sid: string): Promise<void>{
-        if(this.data_redis){
-            let keys = await this.data_redis.keys(SID_KEY.replace(X, sid))
-            for(let key of keys){
-                await this.data_redis.del(key);
+                this.ispublish = false;
+            } catch (error) {
+                msg && this.msgbuffers.unshift(msg)
+                this.init();
+                console.log(REDIS_SURVIVAL_KEY, error)
             }
         }
-        else {
-            delete this.clientkeys[this.tmpclientkeys[sid]];
-            delete this.tmpclientkeys[sid];
+    }
+
+    private async publish(msg: Buffer): Promise<void> {
+        this.msgbuffers.push(msg);
+        this.startPublish();
+    }
+
+    private async onmessage(msg: ConsumeMessage | null): Promise<void> {
+        if (msg && msg.content) {
+            try {
+
+                const args = msgpack.decode(msg.content);
+                const type = args.shift();
+                const uid = args.shift();
+                const requestid = args.shift();
+
+                switch (type) {
+                    case RequestMethod.response: {
+                        if (this.uid === uid) {
+                            clearTimeout(this.checkchannelid);
+                            setTimeout(this.sendCheckChannel.bind(this), 1000);
+                        }
+                        break;
+                    }
+                    case RequestMethod.response: {
+                        if (this.uid === uid) {
+                            this.requests.get(requestid)?.call(this, args.shift());
+                        }
+                        break;
+                    }
+                    case RequestMethod.getRoomall: {
+                        this.publish(msgpack.encode([RequestMethod.response, uid,　requestid, [...this.rooms.keys()]]))
+                        break;
+                    }
+                    case RequestMethod.getClientidByroom: {
+                        this.publish(msgpack.encode([RequestMethod.response, uid,　requestid, [...(this.rooms.get(args.shift()) || [])]]))
+                        break;
+                    }
+                    case RequestMethod.getRoomidByid: {
+                        this.publish(msgpack.encode([RequestMethod.response, uid,　requestid, [...(this.client2rooms.get(args.shift()) || [])]]))
+                        break;
+                    }
+                    case RequestMethod.broadcast: {
+                        switch (args.shift()) {
+                            case BroadcastType.room:{
+                                let room = args.shift();
+                                let [event, data, status, msg] = args.shift();
+                                for(let id of this.rooms.get(room) || []){
+                                    this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
+                                }
+                                break;
+                            }
+                            case BroadcastType.socket:{
+                                let id = args.shift();
+                                let [event, data, status, msg] = args.shift();
+                                this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
+                                break;
+                            }
+                            case BroadcastType.all:{
+                                let [event, data, status, msg] = args.shift();
+                                for(let id of this.clients.keys() || []){
+                                    this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
+                                }
+                                break;
+                            }
+                            default:
+                                break;
+                        }
+                        break;
+                    }
+                    
+                    default:
+                }
+
+            } catch (error) {
+                this.emit("error", error);
+            }
         }
     }
 
-    /**
-     * 获取 ID 
-     * @param {*} keyPattern Redis Key
-     * @param {*} regExp 对应资源的正则
-     */
-    private async findIds(keyPattern: string, regExp: RegExp): Promise<string[]>{
-        const keys = this.data_redis ? await this.data_redis.keys(keyPattern) :  Object.keys(this.clientkeys).filter(key => new RegExp(keyPattern.replace(/\*/g, ".*")).test(key))
-        return this.matchIds(keys, regExp);
-    }
-
-    /**
-     * 在 Keys 中获取 ID列表
-     * @param {*} keys 
-     * @param {*} keyPattern 
-     * @param {*} regExp 
-     */
-    private findIdsByKeys(keys: string[], keyPattern: string, id: string, regExp: RegExp): string[] {
-        const keyList = keys.filter(key => new RegExp(keyPattern.replace(X, id).replace(/\*/g, ".*")).test(key))
-        return this.matchIds(keyList, regExp);
-    }
-
-    /**
-     * 从 Key 中获取指定的 ID
-     * @param {*} key 
-     * @param {*} regExp 
-     */
-    private matchId(key: string, regExp: RegExp):string{
-        return String(key).match(regExp)?.pop() + "";
-    }
-    /**
-     * 从 Key 中获取指定的 ID
-     * @param {*} keys 
-     * @param {*} regExp 
-     */
-    private matchIds(keys:string[], regExp: RegExp): string[] {
-        return [... new Set(keys.map(key => this.matchId(key, regExp)))];
-    }
-
-    /**
-     * 根据房间ID获取所有的 Sid
-     * @param {*} roomid 
-     */
-    public async findSidsByRoomid(roomid:string): Promise<string[]>{
-        const results = await this.findIds(ROOM_ID_KEY.replace(X, roomid), SID_REGEXP);
-        return results || [];
-    }
-
-    /**
-     * 根据房间ID获取所有的 Uid
-     * @param {*} roomid 
-     */
-    public async findUidsByRoomid(roomid:string): Promise<string[]>{
-        const results = await this.findIds(ROOM_ID_KEY.replace(X, roomid), UID_REGEXP);
-        return results || [];
-    }
-
-    /**
-     * 根据 SID 获取房间ID
-     * @param {*} uid 
-     */
-    public async findRoomidsBySid(sid:string): Promise<string[]>{
-        const results = await this.findIds(SID_KEY.replace(X, sid), ROOM_ID_REGEXP);
-        return (results || []).filter(id => id != SYSTEM_ROOMID);
-    }
-
-    /**
-     * 根据 UID 获取 SID
-     * @param {*} uid 
-     */
-    public async findSidsByRoomidAndUid(roomid:string, uid:string): Promise<string[]>{
-        const results = await this.findIds(ALL_KEY.replace(/R\*/, roomid).replace(/U\*/, uid), SID_REGEXP);
-        return results || [];
-    }
     
-    /**
-     * 获取所有的 ROOMID
-     */
-    public async findAllRoomid(): Promise<string[]>{
-        const results = await this.findIds(ALL_KEY, ROOM_ID_REGEXP);
-        return (results || []).filter(id => id != SYSTEM_ROOMID);
-    }
-    
-    /**
-     * 获取所有的 channel
-     */
-    public async findAllEquipment(): Promise<string[]>{
-        const results = await this.findIds(ALL_KEY, EQUIPMENT_REGEXP);
-        return results || [];
-    }
-
-    /**获取所有的Sid */
-    public async findAllSids(): Promise<string[]>{
-        const results = await this.findIds(ALL_KEY, SID_REGEXP);
-        return results || [];
-    }
-
-    /**
-     * 根据 channel 获取 ROOMID
-     * @param {*} channel 
-     */
-    public async findRoomidsByEquipment(equipment:string): Promise<string[]>{
-        const results = await this.findIds(EQUIPMENT_KEY.replace(X, equipment), ROOM_ID_REGEXP);
-        return results || [];
-    }
-
-    /**
-     * 获取所有的 Keys
-     */
-    public async findAllKeys(): Promise<string[]>{
-        const results = this.data_redis ? await this.data_redis.keys(ALL_KEY) : Object.keys(this.clientkeys);
-        return results || [];
-    }
-
-
-    /**
-     * 通过 Redis 进行多服务器消息同步
-     * @param message 
-     */
-    private emit_socket_message(message: { id: string, data: Code.PackageData }) {
-        let client = this.clients.get(message.id);
+    private emitSocketMessage(id: string, event: string, data: any, status: number, msg: string) {
+        let client = this.clients.get(id);
         if (client) {
-            logger("emit_socket_message", message)
-            client.response(
-                message.data.path, 
-                message.data.status, 
-                message.data.msg, 
-                0, 
-                message.data.data
-            );
+            client.response(event, status, msg, 0, data);
         }
         else {
-            this.delete(message.id);
+            this.delete(id);
         }
     }
+
 
     /**
      * 获取一个 Socket 客户端对象
@@ -306,10 +281,9 @@ export class Adapter {
      * @param {*} id 
      * @param {*} socket 
      */
-    public async set(socket: SWebSocket): Promise<SWebSocket> {
+    public set(socket: SWebSocket): SWebSocket {
         logger("set", socket.getid())
         this.clients.set(socket.getid(), socket);
-        this.addUserRelation("summer01", socket.os, socket.device, socket.browser, SYSTEM_ROOMID, socket.getid());
         return socket;
     }
 
@@ -317,10 +291,13 @@ export class Adapter {
      * 删除一个 Socket 连接
      * @param {*} id 
      */
-    public async delete(id: string) {
+    public delete(id: string) {
         logger("delete", id)
         this.clients.delete(id);
-        this.removeUserRelation(id);
+        for (let roomid of this.client2rooms.get(id) || []) {
+            this.rooms.get(roomid)?.delete(id);
+        }
+        this.client2rooms.delete(id);
     }
 
     /**
@@ -328,10 +305,15 @@ export class Adapter {
      * @param id 
      * @param room 
      */
-    public async join(id: string, room: string){
+    public join(id: string, room: string) {
         logger("join", id, room)
-        let socket = this.get(id);
-        this.addUserRelation("summer01", socket.os, socket.device, socket.browser, room, socket.getid());
+        room = String(room);
+        id = String(id);
+        if (!this.rooms.has(room)) this.rooms.set(room, new Set());
+        if (!this.client2rooms.has(id)) this.client2rooms.set(id, new Set());
+
+        this.client2rooms.get(id)?.add(room);
+        this.rooms.get(room)?.add(id);
     }
 
     /**
@@ -339,40 +321,104 @@ export class Adapter {
      * @param id 
      * @param room 
      */
-    public async leave(id:string, room: string){
+    public leave(id: string, room: string) {
         logger("leave", id, room)
-        if(this.data_redis){
-            let keys = await this.data_redis.keys(ALL_KEY.replace(/R\*/, room).replace(/S\*/, id))
-            for(let key of keys){
-                await this.data_redis.del(key);
-            }
-        }
-        else {
-            delete this.clientkeys[this.tmpclientkeys[id]];
-            delete this.tmpclientkeys[id];
-        }
+        room = String(room);
+        id = String(id);
+
+        this.client2rooms.get(id)?.delete(room);
+        this.rooms.get(room)?.delete(id);
     }
+
 
     /**
      * 获取所有的房间号
      */
-    public async getRoomall(): Promise<string[]>{
-        return await this.findAllRoomid();
+    public async getRoomall(): Promise<string[]> {
+        return new Promise(async (resolve, reject) => {
+            if(!this.cluster){
+                return resolve([...this.rooms.keys()]);
+            }
+            let requestoutid = setTimeout(_ => reject("Waiting for MQ to return [getRoomall] message timed out"), this.requestsTimeout);
+            let requestid = id24();
+            let servercount = await this.allSurvivalCount();
+            let result:string[] = [];
+            let callback:(this: this, rooms:string[]) => void = function(rooms: string[]){
+                if(--servercount > 0){
+                    result = result.concat(rooms)
+                }
+                else {
+                    this.requests.delete(requestid)
+                    clearInterval(requestoutid)
+                    result = result.concat(rooms)
+                    resolve(result)
+                }
+            }
+            let msg = msgpack.encode([RequestMethod.getRoomall, this.uid, requestid])
+            this.publish(msg)
+            this.requests.set(requestid, callback);
+        })
     }
     /**
      * 根据房间号获取所有的客户端ID
      * @param room 
      */
-    public async getClientidByroom(room: string): Promise<string[]>{
-        return await this.findSidsByRoomid(room);
+    public async getClientidByroom(room: string): Promise<string[]> {
+        return new Promise(async (resolve, reject) => {
+            room = String(room);
+            if(!this.cluster){
+                return resolve([...this.rooms.get(room) || []]);
+            }
+            let requestoutid = setTimeout(_ => reject("Waiting for MQ to return [getClientidByroom] message timed out"), this.requestsTimeout);
+            let requestid = id24();
+            let servercount = await this.allSurvivalCount();
+            let result:string[] = []
+            let callback: ResponseCallback<string[]> = function(sockets: string[]){
+                if(--servercount > 0){
+                    result = result.concat(sockets)
+                }
+                else {
+                    this.requests.delete(requestid)
+                    clearInterval(requestoutid)
+                    result = result.concat(sockets)
+                    resolve(result)
+                }
+            }
+            let msg = msgpack.encode([RequestMethod.getClientidByroom, this.uid, requestid, room])
+            this.publish(msg)
+            this.requests.set(requestid, callback);
+        })
     }
 
     /**
      * 根据 客户端ID 获取所在的所有房间ID
      * @param id 
      */
-    public async getRoomidByid(id: string): Promise<string[]>{
-        return await this.findRoomidsBySid(id);
+    public async getRoomidByid(id: string): Promise<string[]> {
+        return new Promise(async (resolve, reject) => {
+            id = String(id);
+            if(!this.cluster){
+                return resolve([...this.client2rooms.get(id) || []]);
+            }
+            let requestoutid = setTimeout(_ => reject("Waiting for MQ to return [getRoomidByid] message timed out"), this.requestsTimeout);
+            let requestid = id24();
+            let servercount = await this.allSurvivalCount();
+            let result:string[] = []
+            let callback: ResponseCallback<string[]> = function(rooms: string[]){
+                if(--servercount > 0){
+                    result = result.concat(rooms)
+                }
+                else {
+                    this.requests.delete(requestid)
+                    clearInterval(requestoutid)
+                    result = result.concat(rooms)
+                    resolve(result)
+                }
+            }
+            let msg = msgpack.encode([RequestMethod.getRoomidByid, this.uid, requestid, id])
+            this.publish(msg)
+            this.requests.set(requestid, callback);
+        })
     }
 
     /**
@@ -381,25 +427,27 @@ export class Adapter {
      * @param room 
      */
     public async hasRoom(id: string, room: string): Promise<boolean> {
-        let sids = await this.findSidsByRoomid(room);
-        return sids.includes(id);
+        id = String(id);
+        room = String(room);
+        let rooms = await this.getRoomidByid(id);
+        return rooms.includes(room);
     }
 
     /**
      * 获取所有的房间总数
      */
     public async getAllRoomcount(): Promise<number> {
-        let rooms = await this.findAllRoomid();
-        return rooms.length - 1;
+        let rooms = await this.getRoomall();
+        return rooms.length;
     }
 
     /**
      * 获取房间内人员数量
      * @param room 
      */
-    public async getRoomsize(room: string): Promise<number>{
-        let sids = await this.findSidsByRoomid(room);
-        return sids.length;
+    public async getRoomsize(room: string): Promise<number> {
+        let clients = await this.getClientidByroom(room);
+        return clients.length;
     }
 
     /**
@@ -411,9 +459,14 @@ export class Adapter {
      * @param msg 
      */
     public async sendRoomMessage(room: string, event: string, data: any, status: number = <number>CODE[200][0], msg: string = <string>CODE[200][1]) {
-        for(let id of await this.getClientidByroom(room)){
-            this.sendSocketMessage(id, event, data, status, msg)
+        room = String(room)
+        if(!this.cluster){
+            for(let id of this.rooms.get(room) || []){
+                this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
+            }
+            return ;
         }
+        this.publish(msgpack.encode([RequestMethod.broadcast, this.uid, 0, BroadcastType.room, room,　[ event, data, status, msg ]]));
     }
 
     /**
@@ -424,9 +477,13 @@ export class Adapter {
      * @param msg 
      */
     public async sendBroadcast(event: string, data: any, status: number = <number>CODE[200][0], msg: string = <string>CODE[200][1]) {
-        for(let sid of await this.getClientidByroom(SYSTEM_ROOMID)) {
-            this.sendSocketMessage(sid, event, data, status, msg);
+        if(!this.cluster){
+            for(let id of this.clients.keys() || []){
+                this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
+            }
+            return ;
         }
+        this.publish(msgpack.encode([RequestMethod.broadcast, this.uid, 0, BroadcastType.all, [ event, data, status, msg ]]));
     }
 
     /**
@@ -436,12 +493,12 @@ export class Adapter {
      * @param {*} data 
      */
     public async sendSocketMessage(id: string, event: string, data: any, status: number = <number>CODE[200][0], msg: string = <string>CODE[200][1]) {
-        logger("sendSocketMessage", { id, data })
-        if(this.pub_redis){
-            this.pub_redis.publish("emit_socket_message", JSON.stringify({ id, data:{ path: event, status, msg, data } }))
+        id = String(id)
+        if(!this.cluster){
+            this.emitSocketMessage.apply(this, [id, event, data, status, msg]);
+            return ;
         }
-        else {
-            this.emit_socket_message({ id, data:{ path: event, data, status, msg, request_id: 0 }} )
-        }
+        this.publish(msgpack.encode([RequestMethod.broadcast, this.uid, 0, BroadcastType.socket, id,　[ event, data, status, msg ]]));
     }
 }
+

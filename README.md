@@ -43,6 +43,8 @@ const server = new Ssocket({
     perMessageDeflate: true, // 非必传
     maxPayload: 1024 * 1024 * 10, // 最大传输单位 10M // 非必传
     adapter:{// 非必传, 用于服务集群做消息同步
+        // ＭＱ　交换机名称前缀
+        key:"SocketTipKey",
         redis:{ 
             prefix: 'im',
             host: '127.0.0.1',

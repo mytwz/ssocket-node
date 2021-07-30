@@ -3,7 +3,7 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description: 程序主类，
- * @LastEditTime: 2021-04-27 10:34:15 +0800
+ * @LastEditTime: 2021-07-30 10:41:47 +0800
  * @FilePath: /ssocket/src/application.ts
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -41,7 +41,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Application = void 0;
 const ws_1 = require("ws");
 const events_1 = require("events");
-const adapter2_1 = require("./adapter2");
+const adapter_1 = require("./adapter");
 const client_1 = require("./client");
 const router_1 = require("./router");
 const code_1 = __importStar(require("./code")), Code = code_1;
@@ -53,7 +53,7 @@ class Application extends events_1.EventEmitter {
         super();
         this.opts = opts;
         this.__router = new router_1.Router();
-        this.__adapter = new adapter2_1.Adapter(this.opts.adapter || {});
+        this.__adapter = new adapter_1.Adapter(this.opts.adapter || {});
         this.__server = new ws_1.Server(this.opts, () => this.emit("start-up"));
         if (this.opts.protos) {
             if (this.opts.protos.request)

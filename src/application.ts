@@ -2,14 +2,14 @@
  * @Author: Summer
  * @LastEditors: Summer
  * @Description: 程序主类，
- * @LastEditTime: 2021-04-27 10:34:15 +0800
+ * @LastEditTime: 2021-07-30 10:41:47 +0800
  * @FilePath: /ssocket/src/application.ts
  */
 
 import { IncomingMessage } from "http";
 import { Server, ServerOptions } from "ws";
 import { EventEmitter } from 'events';
-import { Options, Adapter } from "./adapter2"
+import { Options, Adapter } from "./adapter"
 import { SWebSocket } from "./client";
 import WebSocket from "ws";
 import { Router } from "./router";
