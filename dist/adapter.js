@@ -4,7 +4,7 @@
  * @LastEditors: Summer
  * @Description:
  * @Date: 2021-04-26 16:51:46 +0800
- * @LastEditTime: 2021-08-02 17:44:44 +0800
+ * @LastEditTime: 2021-08-02 18:22:38 +0800
  * @FilePath: /ssocket/src/adapter.ts
  */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
@@ -129,13 +129,13 @@ class Adapter extends events_1.EventEmitter {
                     __redisdata.auth(this.opt.redis.password).then(_ => logger("redis", "Password verification succeeded"));
                 __mqconnect = yield amqplib_1.connect(this.opt.mqurl + "");
                 __mqsub = yield __mqconnect.createChannel();
-                yield __mqsub.assertExchange(this.channel, "fanout", { durable: false, autoDelete: true });
-                let qok = yield __mqsub.assertQueue("", { exclusive: false, autoDelete: true });
+                yield __mqsub.assertExchange(this.channel, "fanout", { durable: false });
+                let qok = yield __mqsub.assertQueue("", { exclusive: false, autoDelete: true, durable: false });
                 logger("QOK", qok);
                 yield __mqsub.bindQueue(qok.queue, this.channel, "");
                 yield __mqsub.consume(qok.queue, this.onmessage.bind(this), { noAck: true });
                 __mqpub = yield __mqconnect.createChannel();
-                yield __mqpub.assertExchange(this.channel, "fanout", { durable: false, autoDelete: true });
+                yield __mqpub.assertExchange(this.channel, "fanout", { durable: false });
                 this.survivalid = setInterval(this.survivalHeartbeat.bind(this), 1000);
                 this.ispublish = false;
                 this.sendCheckChannel();
