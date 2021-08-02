@@ -3,7 +3,7 @@
  * @LastEditors: Summer
  * @Description: 
  * @Date: 2021-04-26 16:51:46 +0800
- * @LastEditTime: 2021-08-02 15:40:03 +0800
+ * @LastEditTime: 2021-08-02 17:38:17 +0800
  * @FilePath: /ssocket/src/adapter.ts
  */
 
@@ -125,7 +125,7 @@ export class Adapter extends EventEmitter {
             __mqconnect = await connect(this.opt.mqurl+"");
             __mqsub = await __mqconnect.createChannel();
             await __mqsub.assertExchange(this.channel, "fanout", { durable: false });
-            let qok = await __mqsub.assertQueue("", { exclusive: true }); logger("QOK", qok);
+            let qok = await __mqsub.assertQueue("", { exclusive: false }); logger("QOK", qok);
             await __mqsub.bindQueue(qok.queue, this.channel, "");
             await __mqsub.consume(qok.queue, this.onmessage.bind(this), { noAck: true })
 

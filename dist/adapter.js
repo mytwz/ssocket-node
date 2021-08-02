@@ -4,7 +4,7 @@
  * @LastEditors: Summer
  * @Description:
  * @Date: 2021-04-26 16:51:46 +0800
- * @LastEditTime: 2021-08-02 15:40:03 +0800
+ * @LastEditTime: 2021-08-02 17:38:17 +0800
  * @FilePath: /ssocket/src/adapter.ts
  */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
@@ -130,7 +130,7 @@ class Adapter extends events_1.EventEmitter {
                 __mqconnect = yield amqplib_1.connect(this.opt.mqurl + "");
                 __mqsub = yield __mqconnect.createChannel();
                 yield __mqsub.assertExchange(this.channel, "fanout", { durable: false });
-                let qok = yield __mqsub.assertQueue("", { exclusive: true });
+                let qok = yield __mqsub.assertQueue("", { exclusive: false });
                 logger("QOK", qok);
                 yield __mqsub.bindQueue(qok.queue, this.channel, "");
                 yield __mqsub.consume(qok.queue, this.onmessage.bind(this), { noAck: true });
