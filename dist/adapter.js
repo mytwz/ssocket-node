@@ -4,7 +4,7 @@
  * @LastEditors: Summer
  * @Description:
  * @Date: 2021-04-26 16:51:46 +0800
- * @LastEditTime: 2021-07-30 10:49:49 +0800
+ * @LastEditTime: 2021-08-02 15:40:03 +0800
  * @FilePath: /ssocket/src/adapter.ts
  */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
@@ -34,7 +34,7 @@ const REDIS_SURVIVAL_KEY = `ssocket-survival:${os_1.default.hostname()}:${proces
 let __mqconnect;
 let __mqsub;
 let __mqpub;
-let redisdata;
+let __redisdata;
 ioredis_1.default.prototype.keys = function (pattern) {
     return __awaiter(this, void 0, void 0, function* () {
         let cursor = 0;
@@ -93,8 +93,8 @@ class Adapter extends events_1.EventEmitter {
                 clearInterval(this.survivalid);
                 clearTimeout(this.checkchannelid);
                 try {
-                    if (redisdata)
-                        redisdata.disconnect();
+                    if (__redisdata)
+                        __redisdata.disconnect();
                 }
                 catch (error) {
                     console.log(REDIS_SURVIVAL_KEY, error);
@@ -114,16 +114,19 @@ class Adapter extends events_1.EventEmitter {
                     console.log(REDIS_SURVIVAL_KEY, error);
                 }
                 try {
-                    if (__mqconnect)
+                    if (__mqconnect) {
+                        if (__mqconnect.connection.heartbeater)
+                            __mqconnect.connection.heartbeater.clear();
                         __mqconnect.close();
+                    }
                 }
                 catch (error) {
                     console.log(REDIS_SURVIVAL_KEY, error);
                 }
-                redisdata = __mqsub = __mqpub = __mqconnect = null;
-                redisdata = new ioredis_1.default(this.opt.redis);
+                __redisdata = __mqsub = __mqpub = __mqconnect = null;
+                __redisdata = new ioredis_1.default(this.opt.redis);
                 if ((_a = this.opt.redis) === null || _a === void 0 ? void 0 : _a.password)
-                    redisdata.auth(this.opt.redis.password).then(_ => logger("redis", "Password verification succeeded"));
+                    __redisdata.auth(this.opt.redis.password).then(_ => logger("redis", "Password verification succeeded"));
                 __mqconnect = yield amqplib_1.connect(this.opt.mqurl + "");
                 __mqsub = yield __mqconnect.createChannel();
                 yield __mqsub.assertExchange(this.channel, "fanout", { durable: false });
@@ -150,14 +153,14 @@ class Adapter extends events_1.EventEmitter {
         this.startPublish();
     }
     survivalHeartbeat() {
-        if (redisdata) {
-            redisdata.set(REDIS_SURVIVAL_KEY, 1, "ex", 2);
+        if (__redisdata) {
+            __redisdata.set(REDIS_SURVIVAL_KEY, 1, "ex", 2);
         }
     }
     /**获取所有存活主机的数量 */
     allSurvivalCount() {
         return __awaiter(this, void 0, void 0, function* () {
-            let keys = yield redisdata.keys(`ssocket-survival:*`);
+            let keys = yield __redisdata.keys(`ssocket-survival:*`);
             return keys.length;
         });
     }

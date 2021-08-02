@@ -3,7 +3,7 @@
  * @LastEditors: Summer
  * @Description: 
  * @Date: 2021-04-26 16:51:46 +0800
- * @LastEditTime: 2021-07-30 10:49:49 +0800
+ * @LastEditTime: 2021-08-02 15:40:03 +0800
  * @FilePath: /ssocket/src/adapter.ts
  */
 
@@ -25,7 +25,7 @@ const REDIS_SURVIVAL_KEY = `ssocket-survival:${os.hostname()}:${process.pid}`
 let __mqconnect: Connection;
 let __mqsub: Channel;
 let __mqpub: Channel;
-let redisdata: Redis;
+let __redisdata: Redis;
 
 ioredis.prototype.keys = async function (pattern: string) {
     let cursor = 0;
@@ -99,7 +99,7 @@ export class Adapter extends EventEmitter {
             clearInterval(this.survivalid)
             clearTimeout(this.checkchannelid);
             try {
-                if (redisdata) redisdata.disconnect()
+                if (__redisdata) __redisdata.disconnect()
             } catch (error) { console.log(REDIS_SURVIVAL_KEY, error) }
     
             try {
@@ -111,13 +111,16 @@ export class Adapter extends EventEmitter {
             } catch (error) { console.log(REDIS_SURVIVAL_KEY, error) }
     
             try {
-                if (__mqconnect) __mqconnect.close();
+                if (__mqconnect) {
+                    if((<any>__mqconnect).connection.heartbeater) (<any>__mqconnect).connection.heartbeater.clear()
+                    __mqconnect.close();
+                }
             } catch (error) { console.log(REDIS_SURVIVAL_KEY, error) }
     
-            redisdata = __mqsub = __mqpub = __mqconnect = <any>null;
+            __redisdata = __mqsub = __mqpub = __mqconnect = <any>null;
 
-            redisdata = new ioredis(this.opt.redis);
-            if(this.opt.redis?.password) redisdata.auth(this.opt.redis.password).then(_=> logger("redis", "Password verification succeeded"))
+            __redisdata = new ioredis(this.opt.redis);
+            if(this.opt.redis?.password) __redisdata.auth(this.opt.redis.password).then(_=> logger("redis", "Password verification succeeded"))
             
             __mqconnect = await connect(this.opt.mqurl+"");
             __mqsub = await __mqconnect.createChannel();
@@ -149,14 +152,14 @@ export class Adapter extends EventEmitter {
     }
 
     private survivalHeartbeat(){
-        if(redisdata){
-            redisdata.set(REDIS_SURVIVAL_KEY, 1, "ex", 2);
+        if(__redisdata){
+            __redisdata.set(REDIS_SURVIVAL_KEY, 1, "ex", 2);
         }
     }
 
     /**获取所有存活主机的数量 */
     private async allSurvivalCount(): Promise<number> {
-        let keys = await redisdata.keys(`ssocket-survival:*`);
+        let keys = await __redisdata.keys(`ssocket-survival:*`);
         return keys.length;
     }
 
