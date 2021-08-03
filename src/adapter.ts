@@ -3,7 +3,7 @@
  * @LastEditors: Summer
  * @Description: 
  * @Date: 2021-04-26 16:51:46 +0800
- * @LastEditTime: 2021-08-02 18:22:38 +0800
+ * @LastEditTime: 2021-08-03 11:14:35 +0800
  * @FilePath: /ssocket/src/adapter.ts
  */
 
@@ -80,8 +80,6 @@ export class Adapter extends EventEmitter {
     private readonly cluster: boolean;
     private readonly msgbuffers: Buffer[] = [];
     private survivalid:any = 0;
-    /**检查通道可用性 */
-    private checkchannelid: any = 0;
     private ispublish: boolean = false;
 
     constructor(private opt: Options) {
@@ -95,60 +93,58 @@ export class Adapter extends EventEmitter {
 
     async init() {
         if(this.cluster){
+            console.log("开始初始化")
             this.ispublish = true;
             clearInterval(this.survivalid)
-            clearTimeout(this.checkchannelid);
             try {
                 if (__redisdata) __redisdata.disconnect()
             } catch (error) { console.log(REDIS_SURVIVAL_KEY, error) }
-    
-            try {
-                if (__mqsub) __mqsub.close();
-            } catch (error) { console.log(REDIS_SURVIVAL_KEY, error) }
-    
-            try {
-                if (__mqpub) __mqpub.close();
-            } catch (error) { console.log(REDIS_SURVIVAL_KEY, error) }
-    
-            try {
-                if (__mqconnect) {
-                    if((<any>__mqconnect).connection.heartbeater) (<any>__mqconnect).connection.heartbeater.clear()
-                    __mqconnect.close();
-                }
-            } catch (error) { console.log(REDIS_SURVIVAL_KEY, error) }
-    
-            __redisdata = __mqsub = __mqpub = __mqconnect = <any>null;
-
+            
             __redisdata = new ioredis(this.opt.redis);
             if(this.opt.redis?.password) __redisdata.auth(this.opt.redis.password).then(_=> logger("redis", "Password verification succeeded"))
-            
-            __mqconnect = await connect(this.opt.mqurl+"");
-            __mqsub = await __mqconnect.createChannel();
-            await __mqsub.assertExchange(this.channel, "fanout", { durable: false  });
-            let qok = await __mqsub.assertQueue("", { exclusive: false, autoDelete:true, durable: false }); logger("QOK", qok);
-            await __mqsub.bindQueue(qok.queue, this.channel, "");
-            await __mqsub.consume(qok.queue, this.onmessage.bind(this), { noAck: true })
-
-            __mqpub = await __mqconnect.createChannel();
-            await __mqpub.assertExchange(this.channel, "fanout", { durable: false  });
 
             this.survivalid = setInterval(this.survivalHeartbeat.bind(this), 1000);
-            this.ispublish = false;
-            this.sendCheckChannel();
 
-            console.log(`[${REDIS_SURVIVAL_KEY}]["建立 MQ 消息通道完成", ${JSON.stringify(qok)}]`)
+            // 如果 MQ  连接失败了就一切都重新来一遍
+            this.intiMQ().catch(this.init.bind(this));
         }
+    }
+
+
+    private　async intiMQ(){
+        try {
+            if (__mqsub) __mqsub.close();
+        } catch (error) { console.log(REDIS_SURVIVAL_KEY, error) }
+
+        try {
+            if (__mqpub) __mqpub.close();
+        } catch (error) { console.log(REDIS_SURVIVAL_KEY, error) }
+
+        try {
+            if (__mqconnect) {
+                if((<any>__mqconnect).connection.heartbeater) (<any>__mqconnect).connection.heartbeater.clear()
+                __mqconnect.close();
+            }
+        } catch (error) { console.log(REDIS_SURVIVAL_KEY, error) }
+        __mqsub = __mqpub = __mqconnect = <any>null;
+        __mqconnect = await connect(this.opt.mqurl+"");
+        __mqconnect.on("error", this.checkChannel.bind(this))
+        __mqsub = await __mqconnect.createChannel();
+        await __mqsub.assertExchange(this.channel, "fanout", { durable: false });
+        let qok = await __mqsub.assertQueue("", { exclusive: false, autoDelete:true, durable: false }); debug("QOK", qok);
+        await __mqsub.bindQueue(qok.queue, this.channel, "");
+        await __mqsub.consume(qok.queue, this.onmessage.bind(this), { noAck: true })
+
+        __mqpub = await __mqconnect.createChannel();
+        await __mqpub.assertExchange(this.channel, "fanout", { durable: false });
+        console.log(`[${REDIS_SURVIVAL_KEY}]["建立 MQ 消息通道完成", ${JSON.stringify(qok)}]`)
+        this.ispublish = false;
+        this.startPublish();
     }
 
     private checkChannel() {
         console.log(`[${REDIS_SURVIVAL_KEY}]["MQ 消息通道超时响应，开始重新建立连接"]`);
         this.init();
-    }
-
-    private sendCheckChannel() {
-        this.msgbuffers.unshift(msgpack.encode([RequestMethod.checkChannel, this.uid]));
-        this.checkchannelid = setTimeout(this.checkChannel.bind(this), this.requestsTimeout);
-        this.startPublish();
     }
 
     private survivalHeartbeat(){
@@ -196,13 +192,6 @@ export class Adapter extends EventEmitter {
                 const requestid = args.shift();
 
                 switch (type) {
-                    case RequestMethod.response: {
-                        if (this.uid === uid) {
-                            clearTimeout(this.checkchannelid);
-                            setTimeout(this.sendCheckChannel.bind(this), 1000);
-                        }
-                        break;
-                    }
                     case RequestMethod.response: {
                         if (this.uid === uid) {
                             this.requests.get(requestid)?.call(this, args.shift());
